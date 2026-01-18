@@ -4,10 +4,19 @@ A lightweight terminal user interface for Git, built with Go and [Bubbletea](htt
 
 ## Requirements
 
-- Go 1.24 or later
 - Git
+- Go 1.24 or later (only for manual installation)
 
 ## Installation
+
+### Homebrew
+
+```bash
+brew tap Calvinnix/tap
+brew install simple-git
+```
+
+### Manual
 
 Clone the repository and build:
 
