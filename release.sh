@@ -112,16 +112,32 @@ fi
 
 # Create GitHub release and upload artifacts
 echo
-echo "Creating GitHub release v$VERSION..."
-gh release create "v$VERSION" \
-    --repo "$REPO" \
-    --title "v$VERSION" \
-    --generate-notes \
-    "$DIST_DIR"/*.tar.gz
+if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+    echo "Release v$VERSION already exists, uploading assets..."
+    gh release upload "v$VERSION" \
+        --repo "$REPO" \
+        --clobber \
+        "$DIST_DIR"/*.tar.gz
+else
+    echo "Creating GitHub release v$VERSION..."
+    gh release create "v$VERSION" \
+        --repo "$REPO" \
+        --title "v$VERSION" \
+        --generate-notes \
+        "$DIST_DIR"/*.tar.gz
+fi
 
 echo
-echo "Release v$VERSION created successfully!"
+echo "Release v$VERSION complete!"
 echo "View at: https://github.com/$REPO/releases/tag/v$VERSION"
+
+# Update homebrew-tap
 echo
-echo "Next step:"
-echo "  cd ~/dev/homebrew-tap && git add -A && git commit -m 'Update simple-git to v$VERSION' && git push"
+echo "Updating homebrew-tap..."
+cd ~/dev/homebrew-tap
+git add -A
+git commit -m "Update simple-git to v$VERSION"
+git push
+
+echo
+echo "Done! Homebrew formula updated."
