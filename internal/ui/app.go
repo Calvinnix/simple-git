@@ -18,6 +18,13 @@ const (
 	viewLog
 )
 
+// FileFilter specifies which hunks to show for a file
+type FileFilter struct {
+	Path       string
+	ShowStaged bool
+	Untracked  bool
+}
+
 // AppModel is the root model that manages views
 type AppModel struct {
 	mode         viewMode
@@ -26,7 +33,7 @@ type AppModel struct {
 	branches     BranchesModel
 	stashes      StashesModel
 	log          LogModel
-	currentFiles []string // files being viewed in diff mode
+	currentFiles []FileFilter // files being viewed in diff mode
 	width        int
 	height       int
 }
@@ -83,11 +90,15 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Enter file diff view for selected file(s)
 				items := m.status.getSelectedItems()
 				if len(items) > 0 {
-					m.currentFiles = make([]string, len(items))
+					m.currentFiles = make([]FileFilter, len(items))
 					for i, item := range items {
-						m.currentFiles[i] = item.File.Path
+						m.currentFiles[i] = FileFilter{
+							Path:       item.File.Path,
+							ShowStaged: item.Section == "staged",
+							Untracked:  item.Section == "untracked",
+						}
 					}
-					m.diff = NewDiffModelWithSize(m.currentFiles, m.width, m.height)
+					m.diff = NewDiffModelWithFilters(m.currentFiles, m.width, m.height)
 					m.mode = viewFileDiff
 					return m, tea.Batch(tea.EnterAltScreen, m.diff.Init())
 				}

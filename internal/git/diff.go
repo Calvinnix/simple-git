@@ -315,3 +315,24 @@ func (h *Hunk) GeneratePatch(fileDiff *FileDiff) string {
 
 	return sb.String()
 }
+
+// GetUntrackedFileDiff returns a diff for an untracked file (showing all content as additions)
+func GetUntrackedFileDiff(path string) *FileDiff {
+	// Use git diff --no-index to compare /dev/null with the file
+	// This command exits with code 1 when there are differences, so we ignore the error
+	output, _ := RunAllowFailure("diff", "--no-index", "--", "/dev/null", path)
+	if output == "" {
+		return nil
+	}
+
+	result := parseDiff(output)
+	if len(result.Files) > 0 {
+		// Fix the file path (--no-index uses full paths)
+		result.Files[0].Path = path
+		for i := range result.Files[0].Hunks {
+			result.Files[0].Hunks[i].FilePath = path
+		}
+		return &result.Files[0]
+	}
+	return nil
+}

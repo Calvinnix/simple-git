@@ -437,12 +437,8 @@ func (m StatusModel) doDiscard() tea.Cmd {
 			var err error
 			switch item.Section {
 			case "staged":
-				if err = git.UnstageFile(item.File.Path); err != nil {
-					return errMsg{err}
-				}
-				if item.File.IndexStatus != 'A' {
-					err = git.DiscardFile(item.File.Path)
-				}
+				// Only unstage, preserving working tree changes (like git restore --staged)
+				err = git.UnstageFile(item.File.Path)
 			case "unstaged":
 				err = git.DiscardFile(item.File.Path)
 			case "untracked":

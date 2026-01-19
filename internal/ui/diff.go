@@ -14,9 +14,9 @@ type DiffModel struct {
 	diff         *git.CombinedDiffResult
 	hunks        []git.Hunk
 	cursor       int
-	filterFiles  []string // only show hunks for these files (empty = all)
-	viewingHunk  bool     // true when drilled into a single hunk
-	scrollOffset int      // scroll position within hunk content
+	filterFiles  []FileFilter // only show hunks for these files (empty = all)
+	viewingHunk  bool         // true when drilled into a single hunk
+	scrollOffset int          // scroll position within hunk content
 	showHelp     bool
 	confirmMode  bool
 	lastKey      string
@@ -27,15 +27,36 @@ type DiffModel struct {
 
 // NewDiffModel creates a new diff model
 func NewDiffModel(filterFiles []string) DiffModel {
+	// Convert string paths to FileFilters showing both staged and unstaged
+	filters := make([]FileFilter, 0)
+	for _, path := range filterFiles {
+		filters = append(filters, FileFilter{Path: path, ShowStaged: true})
+		filters = append(filters, FileFilter{Path: path, ShowStaged: false})
+	}
 	return DiffModel{
-		filterFiles: filterFiles,
+		filterFiles: filters,
 	}
 }
 
 // NewDiffModelWithSize creates a new diff model with known dimensions
 func NewDiffModelWithSize(filterFiles []string, width, height int) DiffModel {
+	// Convert string paths to FileFilters showing both staged and unstaged
+	filters := make([]FileFilter, 0)
+	for _, path := range filterFiles {
+		filters = append(filters, FileFilter{Path: path, ShowStaged: true})
+		filters = append(filters, FileFilter{Path: path, ShowStaged: false})
+	}
 	return DiffModel{
-		filterFiles: filterFiles,
+		filterFiles: filters,
+		width:       width,
+		height:      height,
+	}
+}
+
+// NewDiffModelWithFilters creates a new diff model with specific file filters
+func NewDiffModelWithFilters(filters []FileFilter, width, height int) DiffModel {
+	return DiffModel{
+		filterFiles: filters,
 		width:       width,
 		height:      height,
 	}
@@ -299,17 +320,40 @@ func (m DiffModel) getFilteredHunks() []git.Hunk {
 	if len(m.filterFiles) == 0 {
 		return allHunks
 	}
-	// Build set of filter files for O(1) lookup
-	filterSet := make(map[string]bool, len(m.filterFiles))
-	for _, f := range m.filterFiles {
-		filterSet[f] = true
+	// Build map of file path -> which staged states to show
+	type filterKey struct {
+		path   string
+		staged bool
 	}
+	filterSet := make(map[filterKey]bool, len(m.filterFiles))
+	var untrackedFiles []string
+	for _, f := range m.filterFiles {
+		if f.Untracked {
+			untrackedFiles = append(untrackedFiles, f.Path)
+		} else {
+			filterSet[filterKey{path: f.Path, staged: f.ShowStaged}] = true
+		}
+	}
+
 	var filtered []git.Hunk
 	for _, h := range allHunks {
-		if filterSet[h.FilePath] {
+		key := filterKey{path: h.FilePath, staged: h.Staged}
+		if filterSet[key] {
 			filtered = append(filtered, h)
 		}
 	}
+
+	// Add hunks for untracked files
+	for _, path := range untrackedFiles {
+		fileDiff := git.GetUntrackedFileDiff(path)
+		if fileDiff != nil {
+			for _, hunk := range fileDiff.Hunks {
+				hunk.Staged = false // Untracked files are not staged
+				filtered = append(filtered, hunk)
+			}
+		}
+	}
+
 	return filtered
 }
 
@@ -532,16 +576,9 @@ func (m DiffModel) View() string {
 			}
 		}
 
-		if i == m.cursor {
-			stageStyle = stageStyle.Inherit(StyleSelected)
-			sb.WriteString(StyleSelected.Render(cursor))
-			sb.WriteString(stageStyle.Render(stageLabel))
-			sb.WriteString(StyleSelected.Render(fmt.Sprintf(" @@ %s +%d -%d", h.FilePath, adds, dels)))
-		} else {
-			sb.WriteString(cursor)
-			sb.WriteString(stageStyle.Render(stageLabel))
-			sb.WriteString(fmt.Sprintf(" @@ %s +%d -%d", h.FilePath, adds, dels))
-		}
+		sb.WriteString(cursor)
+		sb.WriteString(stageStyle.Render(stageLabel))
+		sb.WriteString(fmt.Sprintf(" @@ %s +%d -%d", h.FilePath, adds, dels))
 		sb.WriteString("\n")
 	}
 

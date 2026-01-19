@@ -21,6 +21,19 @@ func Run(args ...string) (string, error) {
 	return stdout.String(), nil
 }
 
+// RunAllowFailure executes a git command and returns output even if the command fails
+// (useful for commands like diff --no-index which exit with 1 when there are differences)
+func RunAllowFailure(args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	// Return stdout even if there's an error (diff returns 1 when there are differences)
+	return stdout.String(), err
+}
+
 // StageFile stages a file
 func StageFile(path string) error {
 	_, err := Run("add", "--", path)
