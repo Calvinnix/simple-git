@@ -12,17 +12,19 @@ import (
 
 // BranchesModel is the bubbletea model for the branches tab
 type BranchesModel struct {
-	branches          []git.Branch
-	cursor            int
-	showHelp          bool
-	inputMode         bool
-	deleteConfirmMode bool
-	branchInput       textinput.Model
-	deleteInput       textinput.Model
-	lastKey           string
-	err               error
-	width             int
-	height            int
+	branches            []git.Branch
+	cursor              int
+	showHelp            bool
+	inputMode           bool
+	deleteConfirmMode   bool
+	forceDeleteMode     bool
+	pendingDeleteBranch string
+	branchInput         textinput.Model
+	deleteInput         textinput.Model
+	lastKey             string
+	err                 error
+	width               int
+	height              int
 }
 
 // NewBranchesModel creates a new branches model
@@ -92,6 +94,22 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.deleteInput, cmd = m.deleteInput.Update(msg)
 				return m, cmd
 			}
+		}
+
+		// Handle force delete confirm mode
+		if m.forceDeleteMode {
+			switch key {
+			case "y", "Y":
+				m.forceDeleteMode = false
+				m.err = nil
+				return m, m.doForceDeleteBranch()
+			case "n", "N", "esc":
+				m.forceDeleteMode = false
+				m.pendingDeleteBranch = ""
+				m.err = nil
+				return m, nil
+			}
+			return m, nil
 		}
 
 		// Handle input mode (new branch)
@@ -196,6 +214,12 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case branchDeleteFailedMsg:
+		m.err = msg.err
+		m.pendingDeleteBranch = msg.branchName
+		m.forceDeleteMode = true
+		return m, nil
+
 	case errMsg:
 		m.err = msg.err
 		return m, nil
@@ -232,6 +256,24 @@ func (m BranchesModel) doDeleteBranch() tea.Cmd {
 	return func() tea.Msg {
 		err := git.DeleteBranch(branch.Name)
 		if err != nil {
+			// Check if the error is about unmerged branch
+			if strings.Contains(err.Error(), "not fully merged") {
+				return branchDeleteFailedMsg{branchName: branch.Name, err: err}
+			}
+			return errMsg{err}
+		}
+		return refreshBranches()
+	}
+}
+
+func (m BranchesModel) doForceDeleteBranch() tea.Cmd {
+	if m.pendingDeleteBranch == "" {
+		return nil
+	}
+	branchName := m.pendingDeleteBranch
+	return func() tea.Msg {
+		err := git.ForceDeleteBranch(branchName)
+		if err != nil {
 			return errMsg{err}
 		}
 		return refreshBranches()
@@ -246,7 +288,7 @@ func (m BranchesModel) View() string {
 
 	var sb strings.Builder
 
-	if m.err != nil {
+	if m.err != nil && !m.forceDeleteMode {
 		sb.WriteString(StyleUnstaged.Render(fmt.Sprintf("Error: %v", m.err)))
 		sb.WriteString("\n\n")
 	}
@@ -321,6 +363,16 @@ func (m BranchesModel) View() string {
 		sb.WriteString(fmt.Sprintf("Type '%s' to delete: ", branch.Name))
 		sb.WriteString(m.deleteInput.View())
 		sb.WriteString(StyleMuted.Render("  (esc to cancel)"))
+	}
+
+	// Force delete prompt
+	if m.forceDeleteMode {
+		sb.WriteString("\n")
+		if m.err != nil {
+			sb.WriteString(StyleUnstaged.Render(fmt.Sprintf("Error: %v", m.err)))
+			sb.WriteString("\n")
+		}
+		sb.WriteString(StyleConfirm.Render(fmt.Sprintf("Force delete '%s'? (y/n) ", m.pendingDeleteBranch)))
 	}
 
 	// Input mode

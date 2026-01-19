@@ -156,14 +156,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case viewBranches:
 			// Handle back navigation from branches
 			if key == "h" || key == "left" || key == "esc" {
-				if !m.branches.showHelp && !m.branches.deleteConfirmMode && !m.branches.inputMode {
+				if !m.branches.showHelp && !m.branches.deleteConfirmMode && !m.branches.inputMode && !m.branches.forceDeleteMode {
 					m.mode = viewStatus
 					return m, tea.Batch(tea.ExitAltScreen, refreshStatus)
 				}
 			}
 			// Override quit to go back instead
 			if key == "q" {
-				if !m.branches.showHelp && !m.branches.deleteConfirmMode && !m.branches.inputMode {
+				if !m.branches.showHelp && !m.branches.deleteConfirmMode && !m.branches.inputMode && !m.branches.forceDeleteMode {
 					m.mode = viewStatus
 					return m, tea.Batch(tea.ExitAltScreen, refreshStatus)
 				}
@@ -304,6 +304,11 @@ type combinedDiffMsg struct {
 
 type branchesMsg struct {
 	branches []git.Branch
+}
+
+type branchDeleteFailedMsg struct {
+	branchName string
+	err        error
 }
 
 type stashesMsg struct {
