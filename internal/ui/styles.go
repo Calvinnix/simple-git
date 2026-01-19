@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 var (
 	// Using ANSI color numbers for broad terminal compatibility
@@ -57,29 +61,59 @@ var (
 	StyleEmpty = lipgloss.NewStyle().Foreground(colorGray).Italic(true)
 )
 
-// StatusChar returns the styled status character for display
-func StatusChar(indexStatus, workStatus byte) string {
-	return StatusCharStyled(indexStatus, workStatus, StyleNormal)
+// StatusChar returns the styled status word for display based on the section
+func StatusChar(indexStatus, workStatus byte, section string) string {
+	return StatusCharStyled(indexStatus, workStatus, section, StyleNormal)
 }
 
-// StatusCharStyled returns the status character with extra styling (e.g., selection highlight).
-func StatusCharStyled(indexStatus, workStatus byte, extra lipgloss.Style) string {
-	idx := string(indexStatus)
-	work := string(workStatus)
+// StatusCharStyled returns the status word with extra styling (e.g., selection highlight).
+func StatusCharStyled(indexStatus, workStatus byte, section string, extra lipgloss.Style) string {
+	var word string
+	var style lipgloss.Style
 
-	if indexStatus == '?' {
-		return StyleUntracked.Inherit(extra).Render("??")
+	switch section {
+	case "staged":
+		word = indexStatusWord(indexStatus)
+		style = StyleStaged
+	case "unstaged":
+		word = workStatusWord(workStatus)
+		style = StyleUnstaged
+	case "untracked":
+		// No status prefix for untracked files (like git status)
+		return ""
+	default:
+		return ""
 	}
 
-	idxStyle := StyleNormal
-	if indexStatus != ' ' {
-		idxStyle = StyleStaged
-	}
+	// Pad to 12 chars for alignment (like git status)
+	padded := fmt.Sprintf("%-12s", word)
+	return style.Inherit(extra).Render(padded)
+}
 
-	workStyle := StyleNormal
-	if workStatus != ' ' {
-		workStyle = StyleUnstaged
+func indexStatusWord(status byte) string {
+	switch status {
+	case 'A':
+		return "new file:"
+	case 'M':
+		return "modified:"
+	case 'D':
+		return "deleted:"
+	case 'R':
+		return "renamed:"
+	case 'C':
+		return "copied:"
+	default:
+		return string(status)
 	}
+}
 
-	return idxStyle.Inherit(extra).Render(idx) + workStyle.Inherit(extra).Render(work)
+func workStatusWord(status byte) string {
+	switch status {
+	case 'M':
+		return "modified:"
+	case 'D':
+		return "deleted:"
+	default:
+		return string(status)
+	}
 }

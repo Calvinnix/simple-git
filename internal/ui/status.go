@@ -558,33 +558,33 @@ func (m StatusModel) View() string {
 	itemIndex := 0
 
 	if len(m.status.Staged) > 0 {
-		content.WriteString(StyleSectionHeader.Render("Staged Changes"))
-		content.WriteString("\n")
+		content.WriteString("Changes to be committed:\n")
 		for _, f := range m.status.Staged {
 			content.WriteString(m.renderItem(itemIndex, f, "staged"))
 			content.WriteString("\n")
 			itemIndex++
 		}
+		content.WriteString("\n")
 	}
 
 	if len(m.status.Unstaged) > 0 {
-		content.WriteString(StyleSectionHeader.Render("Unstaged Changes"))
-		content.WriteString("\n")
+		content.WriteString("Changes not staged for commit:\n")
 		for _, f := range m.status.Unstaged {
 			content.WriteString(m.renderItem(itemIndex, f, "unstaged"))
 			content.WriteString("\n")
 			itemIndex++
 		}
+		content.WriteString("\n")
 	}
 
 	if len(m.status.Untracked) > 0 {
-		content.WriteString(StyleSectionHeader.Render("Untracked Files"))
-		content.WriteString("\n")
+		content.WriteString("Untracked files:\n")
 		for _, f := range m.status.Untracked {
 			content.WriteString(m.renderItem(itemIndex, f, "untracked"))
 			content.WriteString("\n")
 			itemIndex++
 		}
+		content.WriteString("\n")
 	}
 
 	// Confirm prompt (only shown when confirming)
@@ -643,32 +643,26 @@ func (m StatusModel) renderItem(index int, f git.FileStatus, section string) str
 
 	// When quitting, render without any cursor or selection highlighting
 	if m.quitting {
-		statusChar := StatusChar(f.IndexStatus, f.WorkStatus)
-		return fmt.Sprintf("  %s %s", statusChar, pathStyle.Render(path))
+		statusChar := StatusChar(f.IndexStatus, f.WorkStatus, section)
+		return fmt.Sprintf("        %s%s", statusChar, pathStyle.Render(path))
 	}
 
 	isSelected := m.selected[index]
 	isCursor := index == m.cursor
 
-	prefix := "  "
+	prefix := "        "
 	if isCursor {
-		prefix = "> "
+		prefix = ">       "
 	}
 
-	if !isSelected && !isCursor {
-		statusChar := StatusChar(f.IndexStatus, f.WorkStatus)
-		return fmt.Sprintf("%s%s %s", prefix, statusChar, pathStyle.Render(path))
-	}
-
-	highlight := StyleSelected
+	// Apply visual mode highlight for selected items
 	if isSelected {
-		highlight = StyleVisual
+		statusChar := StatusCharStyled(f.IndexStatus, f.WorkStatus, section, StyleVisual)
+		return StyleVisual.Render(prefix) + statusChar + pathStyle.Inherit(StyleVisual).Render(path)
 	}
 
-	statusChar := StatusCharStyled(f.IndexStatus, f.WorkStatus, highlight)
-	gap := highlight.Render(" ")
-
-	return highlight.Render(prefix) + statusChar + gap + pathStyle.Inherit(highlight).Render(path)
+	statusChar := StatusChar(f.IndexStatus, f.WorkStatus, section)
+	return fmt.Sprintf("%s%s%s", prefix, statusChar, pathStyle.Render(path))
 }
 
 func (m StatusModel) renderHelp() string {
