@@ -42,7 +42,7 @@ func (m StashDiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		key := msg.String()
 
 		if m.showHelp {
-			if key == "?" || key == "esc" || key == "q" {
+			if key == Keys.Help || key == "esc" || key == Keys.Quit {
 				m.showHelp = false
 			}
 			return m, nil
@@ -51,11 +51,11 @@ func (m StashDiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Viewing single hunk detail
 		if m.viewingHunk {
 			switch key {
-			case "h", "left", "esc":
+			case Keys.Left, "left", "esc":
 				m.viewingHunk = false
 				m.scrollOffset = 0
 				return m, nil
-			case "j", "down":
+			case Keys.Down, "down":
 				if m.cursor < len(m.hunks) {
 					maxScroll := len(m.hunks[m.cursor].Lines) - m.visibleLines()
 					if maxScroll > 0 {
@@ -63,10 +63,10 @@ func (m StashDiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				return m, nil
-			case "k", "up":
+			case Keys.Up, "up":
 				m.scrollOffset = max(m.scrollOffset-1, 0)
 				return m, nil
-			case "G":
+			case Keys.Bottom:
 				if m.cursor < len(m.hunks) {
 					maxScroll := len(m.hunks[m.cursor].Lines) - m.visibleLines()
 					if maxScroll > 0 {
@@ -74,10 +74,10 @@ func (m StashDiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				return m, nil
-			case "g":
+			case Keys.Top:
 				m.scrollOffset = 0
 				return m, nil
-			case "?":
+			case Keys.Help:
 				m.showHelp = true
 				return m, nil
 			}
@@ -85,31 +85,31 @@ func (m StashDiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch key {
-		case "?":
+		case Keys.Help:
 			m.showHelp = true
 			return m, nil
-		case "l", "right":
+		case Keys.Right, "right":
 			if len(m.hunks) > 0 && m.cursor < len(m.hunks) {
 				m.viewingHunk = true
 				m.scrollOffset = 0
 			}
 			return m, nil
-		case "j", "down":
+		case Keys.Down, "down":
 			if len(m.hunks) > 0 {
 				m.cursor = min(m.cursor+1, len(m.hunks)-1)
 			}
 			return m, nil
-		case "k", "up":
+		case Keys.Up, "up":
 			if len(m.hunks) > 0 {
 				m.cursor = max(m.cursor-1, 0)
 			}
 			return m, nil
-		case "G":
+		case Keys.Bottom:
 			if len(m.hunks) > 0 {
 				m.cursor = len(m.hunks) - 1
 			}
 			return m, nil
-		case "g":
+		case Keys.Top:
 			m.cursor = 0
 			return m, nil
 		}
@@ -288,15 +288,20 @@ func (m StashDiffModel) renderHelp() string {
 	sb.WriteString(StyleHelpTitle.Render("Stash Diff Shortcuts"))
 	sb.WriteString("\n\n")
 
+	drillKeys := formatKeyList(Keys.Right, "→")
+	backKeys := formatKeyList(Keys.Left, "←", "ESC")
+	moveKeys := formatKeyList(Keys.Down, Keys.Up, "↓", "↑")
+	topBottomKeys := formatKeyList(Keys.Top, Keys.Bottom)
+
 	help := []struct {
 		key  string
 		desc string
 	}{
-		{"l/→", "View hunk detail"},
-		{"h/←/ESC", "Go back"},
-		{"j/k/↑/↓", "Navigate / scroll"},
-		{"g/G", "Go to top/bottom"},
-		{"?", "Toggle help"},
+		{drillKeys, "View hunk detail"},
+		{backKeys, "Go back"},
+		{moveKeys, "Navigate / scroll"},
+		{topBottomKeys, "Go to top/bottom"},
+		{Keys.Help, "Toggle help"},
 	}
 
 	for _, h := range help {
@@ -348,7 +353,7 @@ func (m StashesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle help mode
 		if m.showHelp {
-			if key == "?" || key == "esc" || key == "q" {
+			if key == Keys.Help || key == "esc" || key == Keys.Quit {
 				m.showHelp = false
 			}
 			return m, nil
@@ -377,33 +382,33 @@ func (m StashesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Check for gg sequence
-		if m.lastKey == "g" && key == "g" {
+		if m.lastKey == Keys.Top && key == Keys.Top {
 			m.lastKey = ""
 			m.cursor = 0
 			return m, nil
 		}
 
-		if key == "g" {
-			m.lastKey = "g"
+		if key == Keys.Top {
+			m.lastKey = Keys.Top
 			return m, nil
 		}
 		m.lastKey = ""
 
 		switch key {
-		case "?":
+		case Keys.Help:
 			m.showHelp = true
 			return m, nil
-		case "j", "down":
+		case Keys.Down, "down":
 			if len(m.stashes) > 0 {
 				m.cursor = min(m.cursor+1, len(m.stashes)-1)
 			}
 			return m, nil
-		case "k", "up":
+		case Keys.Up, "up":
 			if len(m.stashes) > 0 {
 				m.cursor = max(m.cursor-1, 0)
 			}
 			return m, nil
-		case "G":
+		case Keys.Bottom:
 			if len(m.stashes) > 0 {
 				m.cursor = len(m.stashes) - 1
 			}
@@ -564,19 +569,24 @@ func (m StashesModel) renderHelp() string {
 	sb.WriteString(StyleHelpTitle.Render("Stashes Shortcuts"))
 	sb.WriteString("\n\n")
 
+	moveKeys := formatKeyList(Keys.Down, Keys.Up, "↓", "↑")
+	topKey := formatDoubleKey(Keys.Top)
+	drillKeys := formatKeyList(Keys.Right, "→")
+	backKeys := formatKeyList(Keys.Left, "←", "ESC")
+
 	help := []struct {
 		key  string
 		desc string
 	}{
-		{"j/k/↑/↓", "Move down/up"},
-		{"gg", "Go to top"},
-		{"G", "Go to bottom"},
-		{"l/→", "View stash diff"},
+		{moveKeys, "Move down/up"},
+		{topKey, "Go to top"},
+		{Keys.Bottom, "Go to bottom"},
+		{drillKeys, "View stash diff"},
 		{"a", "Apply stash (keep in list)"},
 		{"p", "Pop stash (apply and remove)"},
 		{"d", "Drop stash (delete)"},
-		{"?", "Toggle help"},
-		{"h/←/ESC", "Go back"},
+		{Keys.Help, "Toggle help"},
+		{backKeys, "Go back"},
 	}
 
 	for _, h := range help {

@@ -86,9 +86,9 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		key := msg.String()
 
-		// Handle help mode - ESC or ? closes help
+		// Handle help mode - ESC or help/quit closes help
 		if m.showHelp {
-			if key == "?" || key == "esc" || key == "q" {
+			if key == Keys.Help || key == "esc" || key == Keys.Quit {
 				m.showHelp = false
 			}
 			return m, nil
@@ -109,11 +109,11 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle hunk detail view navigation
 		if m.viewingHunk {
 			switch key {
-			case "h", "left", "esc":
+			case Keys.Left, "left", "esc":
 				m.viewingHunk = false
 				m.scrollOffset = 0
 				return m, nil
-			case "j", "down":
+			case Keys.Down, "down":
 				if m.cursor < len(m.hunks) {
 					maxScroll := len(m.hunks[m.cursor].Lines) - m.visibleLines()
 					if maxScroll > 0 {
@@ -121,18 +121,18 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				return m, nil
-			case "k", "up":
+			case Keys.Up, "up":
 				m.scrollOffset = max(m.scrollOffset-1, 0)
 				return m, nil
-			case "g":
-				if m.lastKey == "g" {
+			case Keys.Top:
+				if m.lastKey == Keys.Top {
 					m.lastKey = ""
 					m.scrollOffset = 0
 					return m, nil
 				}
-				m.lastKey = "g"
+				m.lastKey = Keys.Top
 				return m, nil
-			case "G":
+			case Keys.Bottom:
 				if m.cursor < len(m.hunks) {
 					maxScroll := len(m.hunks[m.cursor].Lines) - m.visibleLines()
 					if maxScroll > 0 {
@@ -142,18 +142,18 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case " ":
 				return m, m.toggleStage()
-			case "a":
+			case Keys.Stage:
 				return m, m.stageHunk()
-			case "u":
+			case Keys.Unstage:
 				return m, m.unstageHunk()
-			case "d":
+			case Keys.Discard:
 				if len(m.hunks) > 0 && m.cursor < len(m.hunks) && !m.hunks[m.cursor].Staged {
 					m.confirmMode = true
 				}
 				return m, nil
-			case "q":
+			case Keys.Quit:
 				return m, tea.Quit
-			case "?":
+			case Keys.Help:
 				m.showHelp = true
 				return m, nil
 			}
@@ -162,52 +162,52 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Check for gg sequence
-		if m.lastKey == "g" && key == "g" {
+		if m.lastKey == Keys.Top && key == Keys.Top {
 			m.lastKey = ""
 			m.cursor = 0
 			return m, nil
 		}
 
-		if key == "g" {
-			m.lastKey = "g"
+		if key == Keys.Top {
+			m.lastKey = Keys.Top
 			return m, nil
 		}
 		m.lastKey = ""
 
 		switch key {
-		case "q":
+		case Keys.Quit:
 			return m, tea.Quit
-		case "?":
+		case Keys.Help:
 			m.showHelp = true
 			return m, nil
-		case "l", "right", "enter":
+		case Keys.Right, "right", "enter":
 			if len(m.hunks) > 0 && m.cursor < len(m.hunks) {
 				m.viewingHunk = true
 				m.scrollOffset = 0
 			}
 			return m, nil
-		case "j", "down":
+		case Keys.Down, "down":
 			if len(m.hunks) > 0 {
 				m.cursor = min(m.cursor+1, len(m.hunks)-1)
 			}
 			return m, nil
-		case "k", "up":
+		case Keys.Up, "up":
 			if len(m.hunks) > 0 {
 				m.cursor = max(m.cursor-1, 0)
 			}
 			return m, nil
-		case "G":
+		case Keys.Bottom:
 			if len(m.hunks) > 0 {
 				m.cursor = len(m.hunks) - 1
 			}
 			return m, nil
 		case " ":
 			return m, m.toggleStage()
-		case "a":
+		case Keys.Stage:
 			return m, m.stageHunk()
-		case "u":
+		case Keys.Unstage:
 			return m, m.unstageHunk()
-		case "d":
+		case Keys.Discard:
 			// Only allow discard on unstaged hunks
 			if len(m.hunks) > 0 && m.cursor < len(m.hunks) && !m.hunks[m.cursor].Staged {
 				m.confirmMode = true
@@ -642,21 +642,26 @@ func (m DiffModel) renderHelp() string {
 	sb.WriteString(StyleHelpTitle.Render("Diff View Shortcuts"))
 	sb.WriteString("\n\n")
 
+	drillKeys := formatKeyList(Keys.Right, "→", "Enter")
+	backKeys := formatKeyList(Keys.Left, "←", "ESC")
+	moveKeys := formatKeyList(Keys.Down, Keys.Up, "↓", "↑")
+	topKey := formatDoubleKey(Keys.Top)
+
 	help := []struct {
 		key  string
 		desc string
 	}{
-		{"l/→", "View hunk detail (scrollable)"},
-		{"h/←/ESC", "Go back"},
-		{"j/k/↑/↓", "Navigate / scroll"},
-		{"gg", "Go to top"},
-		{"G", "Go to bottom"},
+		{drillKeys, "View hunk detail (scrollable)"},
+		{backKeys, "Go back"},
+		{moveKeys, "Navigate / scroll"},
+		{topKey, "Go to top"},
+		{Keys.Bottom, "Go to bottom"},
 		{"SPACE", "Toggle stage/unstage hunk"},
-		{"a", "Stage hunk"},
-		{"u", "Unstage hunk"},
-		{"d", "Discard hunk (unstaged only)"},
-		{"?", "Toggle help"},
-		{"q", "Quit"},
+		{Keys.Stage, "Stage hunk"},
+		{Keys.Unstage, "Unstage hunk"},
+		{Keys.Discard, "Discard hunk (unstaged only)"},
+		{Keys.Help, "Toggle help"},
+		{Keys.Quit, "Quit"},
 	}
 
 	for _, h := range help {

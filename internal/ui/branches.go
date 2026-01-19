@@ -66,7 +66,7 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle help mode
 		if m.showHelp {
-			if key == "?" || key == "esc" || key == "q" {
+			if key == Keys.Help || key == "esc" || key == Keys.Quit {
 				m.showHelp = false
 			}
 			return m, nil
@@ -137,38 +137,38 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Check for gg sequence
-		if m.lastKey == "g" && key == "g" {
+		if m.lastKey == Keys.Top && key == Keys.Top {
 			m.lastKey = ""
 			m.cursor = 0
 			return m, nil
 		}
 
-		if key == "g" {
-			m.lastKey = "g"
+		if key == Keys.Top {
+			m.lastKey = Keys.Top
 			return m, nil
 		}
 		m.lastKey = ""
 
 		switch key {
-		case "?":
+		case Keys.Help:
 			m.showHelp = true
 			return m, nil
-		case "j", "down":
+		case Keys.Down, "down":
 			if len(m.branches) > 0 {
 				m.cursor = min(m.cursor+1, len(m.branches)-1)
 			}
 			return m, nil
-		case "k", "up":
+		case Keys.Up, "up":
 			if len(m.branches) > 0 {
 				m.cursor = max(m.cursor-1, 0)
 			}
 			return m, nil
-		case "G":
+		case Keys.Bottom:
 			if len(m.branches) > 0 {
 				m.cursor = len(m.branches) - 1
 			}
 			return m, nil
-		case "enter", "l":
+		case Keys.Right, "right", "enter":
 			// Checkout selected branch
 			if len(m.branches) > 0 && m.cursor < len(m.branches) {
 				branch := m.branches[m.cursor]
@@ -177,12 +177,12 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
-		case "n":
+		case Keys.NewBranch:
 			// Create new branch
 			m.inputMode = true
 			m.branchInput.Focus()
 			return m, textinput.Blink
-		case "d":
+		case Keys.Delete:
 			// Delete branch (with confirmation)
 			if len(m.branches) > 0 && m.cursor < len(m.branches) {
 				branch := m.branches[m.cursor]
@@ -392,18 +392,23 @@ func (m BranchesModel) renderHelp() string {
 	sb.WriteString(StyleHelpTitle.Render("Branches Shortcuts"))
 	sb.WriteString("\n\n")
 
+	moveKeys := formatKeyList(Keys.Down, Keys.Up, "↓", "↑")
+	topKey := formatDoubleKey(Keys.Top)
+	checkoutKeys := formatKeyList(Keys.Right, "Enter", "→")
+	backKeys := formatKeyList(Keys.Left, "←", "ESC")
+
 	help := []struct {
 		key  string
 		desc string
 	}{
-		{"j/k/↑/↓", "Move down/up"},
-		{"gg", "Go to top"},
-		{"G", "Go to bottom"},
-		{"Enter/l", "Checkout branch"},
-		{"n", "Create new branch"},
-		{"d", "Delete branch"},
-		{"?", "Toggle help"},
-		{"h/←/ESC", "Go back"},
+		{moveKeys, "Move down/up"},
+		{topKey, "Go to top"},
+		{Keys.Bottom, "Go to bottom"},
+		{checkoutKeys, "Checkout branch"},
+		{Keys.NewBranch, "Create new branch"},
+		{Keys.Delete, "Delete branch"},
+		{Keys.Help, "Toggle help"},
+		{backKeys, "Go back"},
 	}
 
 	for _, h := range help {

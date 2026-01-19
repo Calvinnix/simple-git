@@ -132,21 +132,6 @@ Overrides that introduce new shared keys will exit with an error. Avoid mapping 
 | `new-branch` | `n` | Create branch |
 | `delete` | `d` | Delete |
 
-### Examples
-
-```bash
-# Colemak layout
-go-on-git --key.up=e --key.down=n --key.left=m --key.right=i
-
-# Dvorak-friendly
-go-on-git --key.up=c --key.down=t
-
-# Vim muscle memory alternatives
-go-on-git --key.quit=ZZ
-
-# Multiple overrides
-go-on-git --key.commit=w --key.push=P --key.quit=x
-```
 
 ### Shell Alias with Custom Keys
 
@@ -154,5 +139,6 @@ Add to your shell configuration for persistent custom keymaps:
 
 ```bash
 # ~/.bashrc or ~/.zshrc
-alias g='go-on-git --key.up=e --key.down=n'
+alias g='go-on-git --key.up=w'
 ```
+

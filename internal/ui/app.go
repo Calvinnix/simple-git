@@ -9,12 +9,12 @@ import (
 type viewMode int
 
 const (
-	viewStatus viewMode = iota
-	viewFileDiff   // drill-down from status to file diff
-	viewFullDiff   // full diff view (all hunks)
+	viewStatus   viewMode = iota
+	viewFileDiff          // drill-down from status to file diff
+	viewFullDiff          // full diff view (all hunks)
 	viewBranches
 	viewStashes
-	viewStashDiff  // drill-down from stashes to stash diff
+	viewStashDiff // drill-down from stashes to stash diff
 	viewLog
 )
 
@@ -134,7 +134,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case viewFileDiff:
 			// Handle back navigation from file diff
-			if key == "h" || key == "left" || key == "esc" {
+			if key == Keys.Left || key == "left" || key == "esc" {
 				inHunkDetail := m.diff.IsViewingHunk()
 				if !inHunkDetail || (len(m.diff.hunks) == 1 && !m.diff.showHelp && !m.diff.confirmMode) {
 					m.mode = viewStatus
@@ -144,7 +144,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case viewFullDiff:
 			// Handle back navigation from full diff
-			if key == "h" || key == "left" || key == "esc" {
+			if key == Keys.Left || key == "left" || key == "esc" {
 				inHunkDetail := m.diff.IsViewingHunk()
 				if !inHunkDetail || (len(m.diff.hunks) == 1 && !m.diff.showHelp && !m.diff.confirmMode) {
 					m.mode = viewStatus
@@ -154,14 +154,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case viewBranches:
 			// Handle back navigation from branches
-			if key == "h" || key == "left" || key == "esc" {
+			if key == Keys.Left || key == "left" || key == "esc" {
 				if !m.branches.showHelp && !m.branches.deleteConfirmMode && !m.branches.inputMode && !m.branches.forceDeleteMode {
 					m.mode = viewStatus
 					return m, tea.Batch(tea.ExitAltScreen, refreshStatus)
 				}
 			}
 			// Override quit to go back instead
-			if key == "q" {
+			if key == Keys.Quit {
 				if !m.branches.showHelp && !m.branches.deleteConfirmMode && !m.branches.inputMode && !m.branches.forceDeleteMode {
 					m.mode = viewStatus
 					return m, tea.Batch(tea.ExitAltScreen, refreshStatus)
@@ -170,7 +170,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case viewStashes:
 			// Handle drill-down to stash diff
-			if key == "l" || key == "right" {
+			if key == Keys.Right || key == "right" {
 				if len(m.stashes.stashes) > 0 && m.stashes.cursor < len(m.stashes.stashes) {
 					if !m.stashes.showHelp && !m.stashes.confirmMode {
 						stash := m.stashes.stashes[m.stashes.cursor]
@@ -188,14 +188,14 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			// Handle back navigation from stashes
-			if key == "h" || key == "left" || key == "esc" {
+			if key == Keys.Left || key == "left" || key == "esc" {
 				if !m.stashes.showHelp && !m.stashes.confirmMode {
 					m.mode = viewStatus
 					return m, tea.Batch(tea.ExitAltScreen, refreshStatus)
 				}
 			}
 			// Override quit to go back instead
-			if key == "q" {
+			if key == Keys.Quit {
 				if !m.stashes.showHelp && !m.stashes.confirmMode {
 					m.mode = viewStatus
 					return m, tea.Batch(tea.ExitAltScreen, refreshStatus)
@@ -204,7 +204,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case viewStashDiff:
 			// Handle back navigation from stash diff
-			if key == "h" || key == "left" || key == "esc" {
+			if key == Keys.Left || key == "left" || key == "esc" {
 				if !m.stashes.diffModel.showHelp {
 					if m.stashes.diffModel.viewingHunk {
 						// Exit hunk detail first
@@ -217,7 +217,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			// Override quit to go back
-			if key == "q" {
+			if key == Keys.Quit {
 				if !m.stashes.diffModel.showHelp {
 					m.mode = viewStashes
 					return m, nil
@@ -226,7 +226,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case viewLog:
 			// Handle back navigation from log
-			if key == "h" || key == "left" || key == "esc" || key == "q" || key == "o" {
+			if key == Keys.Left || key == "left" || key == "esc" || key == Keys.Quit || key == Keys.Log {
 				m.mode = viewStatus
 				return m, tea.Batch(tea.ExitAltScreen, refreshStatus)
 			}

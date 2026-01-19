@@ -64,16 +64,16 @@ func (m LogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch key {
-		case "j", "down":
+		case Keys.Down, "down":
 			m.scrollOffset = min(m.scrollOffset+1, maxOffset)
 			return m, nil
-		case "k", "up":
+		case Keys.Up, "up":
 			m.scrollOffset = max(m.scrollOffset-1, 0)
 			return m, nil
-		case "G":
+		case Keys.Bottom:
 			m.scrollOffset = maxOffset
 			return m, nil
-		case "g":
+		case Keys.Top:
 			m.scrollOffset = 0
 			return m, nil
 		case "ctrl+d":

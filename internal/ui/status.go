@@ -95,7 +95,7 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle compact help overlay
 		if m.showHelp {
-			if key == "?" || key == "esc" || key == "q" {
+			if key == Keys.Help || key == "esc" || key == Keys.Quit {
 				m.showHelp = false
 			}
 			return m, nil
@@ -742,49 +742,58 @@ func (m StatusModel) renderHelp() string {
 		items []struct{ key, desc string }
 	}
 
+	navKeys := formatKeyList(Keys.Down, Keys.Up)
+	topBottomKeys := formatKeyList(formatDoubleKey(Keys.Top), Keys.Bottom)
+	stageKeys := formatKeyList(Keys.Stage, Keys.StageAll)
+	unstageKeys := formatKeyList(Keys.Unstage, Keys.UnstageAll)
+	commitKeys := formatKeyList(Keys.Commit, Keys.CommitEdit)
+	stashKeys := formatKeyList(Keys.Stash, Keys.StashAll)
+	fileDiffKeys := formatKeyList(Keys.FileDiff, Keys.Right)
+	quitKeys := formatKeyList(Keys.Quit, "ESC")
+
 	columns := []column{
 		{
 			title: "Navigation",
 			items: []struct{ key, desc string }{
-				{"j/k", "up/down"},
-				{"gg/G", "top/bottom"},
-				{"h", "select"},
-				{"v", "visual"},
+				{navKeys, "up/down"},
+				{topBottomKeys, "top/bottom"},
+				{Keys.Select, "select"},
+				{Keys.Visual, "visual"},
 			},
 		},
 		{
 			title: "Staging",
 			items: []struct{ key, desc string }{
 				{"SPACE", "toggle"},
-				{"a/A", "stage"},
-				{"u/U", "unstage"},
-				{"d", "discard"},
+				{stageKeys, "stage"},
+				{unstageKeys, "unstage"},
+				{Keys.Discard, "discard"},
 			},
 		},
 		{
 			title: "Actions",
 			items: []struct{ key, desc string }{
-				{"c/C", "commit"},
-				{"p", "push"},
-				{"s/S", "stash"},
+				{commitKeys, "commit"},
+				{Keys.Push, "push"},
+				{stashKeys, "stash"},
 			},
 		},
 		{
 			title: "Views",
 			items: []struct{ key, desc string }{
-				{"l", "file diff"},
-				{"i", "all diffs"},
-				{"b", "branches"},
-				{"e", "stashes"},
-				{"o", "log"},
+				{fileDiffKeys, "file diff"},
+				{Keys.AllDiffs, "all diffs"},
+				{Keys.Branches, "branches"},
+				{Keys.Stashes, "stashes"},
+				{Keys.Log, "log"},
 			},
 		},
 		{
 			title: "General",
 			items: []struct{ key, desc string }{
-				{"?", "help"},
-				{"/", "help mode"},
-				{"q/ESC", "quit"},
+				{Keys.Help, "help"},
+				{Keys.VerboseHelp, "help mode"},
+				{quitKeys, "quit"},
 			},
 		},
 	}
@@ -837,24 +846,24 @@ func (m StatusModel) renderHelpBar() string {
 	sb.WriteString("\n")
 
 	line1 := []struct{ key, desc string }{
-		{"j/k", "navigate"},
+		{formatKeyList(Keys.Down, Keys.Up), "navigate"},
 		{"SPACE", "stage/unstage"},
-		{"a/A", "stage"},
-		{"u/U", "unstage"},
-		{"d", "discard"},
-		{"c/C", "commit"},
-		{"p", "push"},
+		{formatKeyList(Keys.Stage, Keys.StageAll), "stage"},
+		{formatKeyList(Keys.Unstage, Keys.UnstageAll), "unstage"},
+		{Keys.Discard, "discard"},
+		{formatKeyList(Keys.Commit, Keys.CommitEdit), "commit"},
+		{Keys.Push, "push"},
 	}
 
 	line2 := []struct{ key, desc string }{
-		{"h", "select"},
-		{"v", "visual"},
-		{"l", "diff"},
-		{"i", "all diffs"},
-		{"b", "branches"},
-		{"e", "stashes"},
-		{"o", "log"},
-		{"/", "hide help"},
+		{Keys.Select, "select"},
+		{Keys.Visual, "visual"},
+		{Keys.FileDiff, "diff"},
+		{Keys.AllDiffs, "all diffs"},
+		{Keys.Branches, "branches"},
+		{Keys.Stashes, "stashes"},
+		{Keys.Log, "log"},
+		{Keys.VerboseHelp, "hide help"},
 	}
 
 	for _, item := range line1 {
