@@ -12,16 +12,17 @@ import (
 
 // BranchesModel is the bubbletea model for the branches tab
 type BranchesModel struct {
-	branches    []git.Branch
-	cursor      int
-	showHelp    bool
-	confirmMode bool
-	inputMode   bool
-	branchInput textinput.Model
-	lastKey     string
-	err         error
-	width       int
-	height      int
+	branches          []git.Branch
+	cursor            int
+	showHelp          bool
+	inputMode         bool
+	deleteConfirmMode bool
+	branchInput       textinput.Model
+	deleteInput       textinput.Model
+	lastKey           string
+	err               error
+	width             int
+	height            int
 }
 
 // NewBranchesModel creates a new branches model
@@ -30,8 +31,15 @@ func NewBranchesModel() BranchesModel {
 	ti.Placeholder = "New branch name"
 	ti.CharLimit = 100
 	ti.Width = 40
+
+	di := textinput.New()
+	di.Placeholder = "Type branch name to confirm"
+	di.CharLimit = 100
+	di.Width = 40
+
 	return BranchesModel{
 		branchInput: ti,
+		deleteInput: di,
 	}
 }
 
@@ -62,17 +70,28 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Handle confirm mode (delete branch)
-		if m.confirmMode {
+		// Handle delete confirm mode (type branch name)
+		if m.deleteConfirmMode {
 			switch key {
-			case "y", "Y":
-				m.confirmMode = false
-				return m, m.doDeleteBranch()
-			case "n", "N", "esc":
-				m.confirmMode = false
+			case "enter":
+				typedName := m.deleteInput.Value()
+				m.deleteConfirmMode = false
+				m.deleteInput.Reset()
+				m.deleteInput.Blur()
+				if m.cursor < len(m.branches) && typedName == m.branches[m.cursor].Name {
+					return m, m.doDeleteBranch()
+				}
 				return m, nil
+			case "esc":
+				m.deleteConfirmMode = false
+				m.deleteInput.Reset()
+				m.deleteInput.Blur()
+				return m, nil
+			default:
+				var cmd tea.Cmd
+				m.deleteInput, cmd = m.deleteInput.Update(msg)
+				return m, cmd
 			}
-			return m, nil
 		}
 
 		// Handle input mode (new branch)
@@ -150,7 +169,9 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.branches) > 0 && m.cursor < len(m.branches) {
 				branch := m.branches[m.cursor]
 				if !branch.IsCurrent {
-					m.confirmMode = true
+					m.deleteConfirmMode = true
+					m.deleteInput.Focus()
+					return m, textinput.Blink
 				}
 			}
 			return m, nil
@@ -293,11 +314,13 @@ func (m BranchesModel) View() string {
 		sb.WriteString("\n")
 	}
 
-	// Confirm prompt
-	if m.confirmMode && m.cursor < len(m.branches) {
+	// Delete confirm prompt
+	if m.deleteConfirmMode && m.cursor < len(m.branches) {
 		sb.WriteString("\n")
 		branch := m.branches[m.cursor]
-		sb.WriteString(StyleConfirm.Render(fmt.Sprintf("Delete branch '%s'? (y/n) ", branch.Name)))
+		sb.WriteString(fmt.Sprintf("Type '%s' to delete: ", branch.Name))
+		sb.WriteString(m.deleteInput.View())
+		sb.WriteString(StyleMuted.Render("  (esc to cancel)"))
 	}
 
 	// Input mode
