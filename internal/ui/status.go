@@ -510,6 +510,32 @@ func (m StatusModel) View() string {
 	}
 
 	if m.status.IsEmpty() {
+		// Branch status info
+		content.WriteString(StyleMuted.Render(fmt.Sprintf("On branch %s", m.branchStatus.Name)))
+		content.WriteString("\n")
+		if m.branchStatus.Remote != "" {
+			if m.branchStatus.Ahead > 0 && m.branchStatus.Behind > 0 {
+				content.WriteString(StyleMuted.Render(fmt.Sprintf("Your branch and '%s' have diverged,", m.branchStatus.Remote)))
+				content.WriteString("\n")
+				content.WriteString(StyleMuted.Render(fmt.Sprintf("and have %d and %d different commits each, respectively.", m.branchStatus.Ahead, m.branchStatus.Behind)))
+			} else if m.branchStatus.Ahead > 0 {
+				if m.branchStatus.Ahead == 1 {
+					content.WriteString(StyleMuted.Render(fmt.Sprintf("Your branch is ahead of '%s' by 1 commit.", m.branchStatus.Remote)))
+				} else {
+					content.WriteString(StyleMuted.Render(fmt.Sprintf("Your branch is ahead of '%s' by %d commits.", m.branchStatus.Remote, m.branchStatus.Ahead)))
+				}
+			} else if m.branchStatus.Behind > 0 {
+				if m.branchStatus.Behind == 1 {
+					content.WriteString(StyleMuted.Render(fmt.Sprintf("Your branch is behind '%s' by 1 commit.", m.branchStatus.Remote)))
+				} else {
+					content.WriteString(StyleMuted.Render(fmt.Sprintf("Your branch is behind '%s' by %d commits.", m.branchStatus.Remote, m.branchStatus.Behind)))
+				}
+			} else {
+				content.WriteString(StyleMuted.Render(fmt.Sprintf("Your branch is up to date with '%s'.", m.branchStatus.Remote)))
+			}
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
 		content.WriteString(StyleEmpty.Render("Nothing to commit, working tree clean"))
 		content.WriteString("\n")
 		if m.showVerboseHelp {
