@@ -266,11 +266,11 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case key == Keys.Push:
-			// Push with confirmation
 			if m.branchStatus.Remote != "" && m.branchStatus.Ahead > 0 {
 				m.confirmMode = confirmPush
+				return m, nil
 			}
-			return m, nil
+			return m, m.doPush()
 		case key == Keys.Commit:
 			// Inline commit with message
 			if m.status != nil && len(m.status.Staged) > 0 {
@@ -581,6 +581,17 @@ func (m StatusModel) View() string {
 		content.WriteString("\n")
 		content.WriteString(StyleEmpty.Render("Nothing to commit, working tree clean"))
 		content.WriteString("\n")
+
+		// Confirm prompt for push (when working tree is clean but have unpushed commits)
+		if m.confirmMode == confirmPush {
+			content.WriteString("\n")
+			if m.branchStatus.Ahead == 1 {
+				content.WriteString(fmt.Sprintf("Push 1 commit to '%s'? (y/n) ", m.branchStatus.Remote))
+			} else {
+				content.WriteString(fmt.Sprintf("Push %d commits to '%s'? (y/n) ", m.branchStatus.Ahead, m.branchStatus.Remote))
+			}
+		}
+
 		if m.showVerboseHelp {
 			content.WriteString("\n")
 			content.WriteString(m.renderHelpBar())
