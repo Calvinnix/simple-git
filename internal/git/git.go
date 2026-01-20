@@ -3,13 +3,69 @@ package git
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 )
+
+var (
+	repoRoot     string
+	repoRootOnce sync.Once
+)
+
+// getRepoRoot returns the git repository root directory.
+// The result is cached for efficiency.
+func getRepoRoot() string {
+	repoRootOnce.Do(func() {
+		cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+		output, err := cmd.Output()
+		if err != nil {
+			repoRoot = ""
+			return
+		}
+		repoRoot = strings.TrimSpace(string(output))
+	})
+	return repoRoot
+}
+
+// ResetRepoRoot clears the cached repository root.
+// This is primarily for testing purposes.
+func ResetRepoRoot() {
+	repoRootOnce = sync.Once{}
+	repoRoot = ""
+}
+
+// ToDisplayPath converts a repo-root-relative path to a path relative
+// to the current working directory (for display purposes).
+func ToDisplayPath(repoRelativePath string) string {
+	root := getRepoRoot()
+	if root == "" {
+		return repoRelativePath
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return repoRelativePath
+	}
+
+	// Convert repo-relative path to absolute
+	absPath := filepath.Join(root, repoRelativePath)
+
+	// Get path relative to cwd
+	relPath, err := filepath.Rel(cwd, absPath)
+	if err != nil {
+		return repoRelativePath
+	}
+
+	return relPath
+}
 
 // Run executes a git command and returns the output
 func Run(args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
+	cmd.Dir = getRepoRoot()
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -25,6 +81,7 @@ func Run(args ...string) (string, error) {
 // (useful for commands like diff --no-index which exit with 1 when there are differences)
 func RunAllowFailure(args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
+	cmd.Dir = getRepoRoot()
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -95,6 +152,7 @@ func DiscardUntracked(path string) error {
 // StageHunk stages a specific hunk using patch mode
 func StageHunk(patch string) error {
 	cmd := exec.Command("git", "apply", "--cached")
+	cmd.Dir = getRepoRoot()
 	cmd.Stdin = strings.NewReader(patch)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -109,6 +167,7 @@ func StageHunk(patch string) error {
 // UnstageHunk unstages a specific hunk
 func UnstageHunk(patch string) error {
 	cmd := exec.Command("git", "apply", "--cached", "--reverse")
+	cmd.Dir = getRepoRoot()
 	cmd.Stdin = strings.NewReader(patch)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -123,6 +182,7 @@ func UnstageHunk(patch string) error {
 // DiscardHunk discards a specific hunk from the working tree
 func DiscardHunk(patch string) error {
 	cmd := exec.Command("git", "apply", "--reverse")
+	cmd.Dir = getRepoRoot()
 	cmd.Stdin = strings.NewReader(patch)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

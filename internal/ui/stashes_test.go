@@ -238,7 +238,8 @@ func TestStashDiffModelView(t *testing.T) {
 	m.diff = &git.CombinedDiffResult{}
 	m.hunks = []git.Hunk{
 		{
-			FilePath: "file1.txt",
+			FilePath:        "file1.txt",
+			DisplayFilePath: "file1.txt",
 			Lines: []git.DiffLine{
 				{Content: "-old", Type: git.LineRemoved},
 				{Content: "+new", Type: git.LineAdded},
@@ -279,8 +280,9 @@ func TestStashDiffModelViewHunkDetail(t *testing.T) {
 	m.diff = &git.CombinedDiffResult{}
 	m.hunks = []git.Hunk{
 		{
-			FilePath: "file1.txt",
-			Header:   "@@ -1,3 +1,3 @@",
+			FilePath:        "file1.txt",
+			DisplayFilePath: "file1.txt",
+			Header:          "@@ -1,3 +1,3 @@",
 			Lines: []git.DiffLine{
 				{Content: " context", Type: git.LineContext},
 				{Content: "-removed", Type: git.LineRemoved},

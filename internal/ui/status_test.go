@@ -440,8 +440,8 @@ func TestStatusModelGetSelectedItems(t *testing.T) {
 func TestStatusModelView(t *testing.T) {
 	m := NewStatusModel()
 	m.status = &git.StatusResult{
-		Staged:   []git.FileStatus{{Path: "staged.txt", IndexStatus: 'A'}},
-		Unstaged: []git.FileStatus{{Path: "unstaged.txt", WorkStatus: 'M'}},
+		Staged:   []git.FileStatus{{Path: "staged.txt", DisplayPath: "staged.txt", IndexStatus: 'A'}},
+		Unstaged: []git.FileStatus{{Path: "unstaged.txt", DisplayPath: "unstaged.txt", WorkStatus: 'M'}},
 	}
 	m.items = buildItems(m.status)
 	m.branchStatus = git.BranchStatus{Name: "main"}

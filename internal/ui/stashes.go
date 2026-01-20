@@ -188,7 +188,7 @@ func (m StashDiffModel) View() string {
 	// Show current hunk preview first (above the list)
 	if m.cursor < len(m.hunks) && availableForDetail > 0 {
 		hunk := m.hunks[m.cursor]
-		sb.WriteString(fmt.Sprintf("─── %s %s ───", hunk.FilePath, hunk.Header))
+		sb.WriteString(fmt.Sprintf("─── %s %s ───", hunk.DisplayFilePath, hunk.Header))
 		sb.WriteString("\n")
 
 		totalLines := len(hunk.Lines)
@@ -234,9 +234,9 @@ func (m StashDiffModel) View() string {
 		}
 
 		if i == m.cursor {
-			sb.WriteString(StyleSelected.Render(fmt.Sprintf("%s@@ %s +%d -%d", cursor, h.FilePath, adds, dels)))
+			sb.WriteString(StyleSelected.Render(fmt.Sprintf("%s@@ %s +%d -%d", cursor, h.DisplayFilePath, adds, dels)))
 		} else {
-			sb.WriteString(fmt.Sprintf("%s@@ %s +%d -%d", cursor, h.FilePath, adds, dels))
+			sb.WriteString(fmt.Sprintf("%s@@ %s +%d -%d", cursor, h.DisplayFilePath, adds, dels))
 		}
 		sb.WriteString("\n")
 	}
@@ -276,7 +276,7 @@ func (m StashDiffModel) renderHunkDetail() string {
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("─── %s %s ───", hunk.FilePath, hunk.Header))
+	sb.WriteString(fmt.Sprintf("─── %s %s ───", hunk.DisplayFilePath, hunk.Header))
 	sb.WriteString("\n")
 
 	return sb.String()

@@ -23,23 +23,25 @@ const (
 
 // Hunk represents a single hunk in a diff
 type Hunk struct {
-	Header    string     // The @@ line
-	Lines     []DiffLine // The actual diff lines
-	StartOld  int        // Starting line in old file
-	CountOld  int        // Number of lines from old file
-	StartNew  int        // Starting line in new file
-	CountNew  int        // Number of lines in new file
-	FilePath  string     // Path to the file this hunk belongs to
-	FileIndex int        // Index of the file in the diff
-	HunkIndex int        // Index of this hunk within the file
-	Staged    bool       // Whether this hunk is staged (true) or unstaged (false)
+	Header          string     // The @@ line
+	Lines           []DiffLine // The actual diff lines
+	StartOld        int        // Starting line in old file
+	CountOld        int        // Number of lines from old file
+	StartNew        int        // Starting line in new file
+	CountNew        int        // Number of lines in new file
+	FilePath        string     // Path to the file this hunk belongs to (repo-relative)
+	DisplayFilePath string     // Path for display (cwd-relative)
+	FileIndex       int        // Index of the file in the diff
+	HunkIndex       int        // Index of this hunk within the file
+	Staged          bool       // Whether this hunk is staged (true) or unstaged (false)
 }
 
 // FileDiff represents the diff for a single file
 type FileDiff struct {
-	Path   string
-	Hunks  []Hunk
-	Header []string // File header lines (diff --git, index, ---, +++)
+	Path        string   // Path relative to repo root
+	DisplayPath string   // Path relative to cwd (for display)
+	Hunks       []Hunk
+	Header      []string // File header lines (diff --git, index, ---, +++)
 }
 
 // DiffResult holds all file diffs
@@ -106,6 +108,7 @@ func parseDiff(output string) *DiffResult {
 					path = path[2:]
 				}
 				currentFile.Path = path
+				currentFile.DisplayPath = ToDisplayPath(path)
 			}
 			continue
 		}
@@ -132,10 +135,11 @@ func parseDiff(output string) *DiffResult {
 			}
 
 			currentHunk = &Hunk{
-				Header:    line,
-				FilePath:  currentFile.Path,
-				FileIndex: fileIndex,
-				HunkIndex: len(currentFile.Hunks),
+				Header:          line,
+				FilePath:        currentFile.Path,
+				DisplayFilePath: currentFile.DisplayPath,
+				FileIndex:       fileIndex,
+				HunkIndex:       len(currentFile.Hunks),
 			}
 
 			// Parse hunk header for line numbers
@@ -329,8 +333,10 @@ func GetUntrackedFileDiff(path string) *FileDiff {
 	if len(result.Files) > 0 {
 		// Fix the file path (--no-index uses full paths)
 		result.Files[0].Path = path
+		result.Files[0].DisplayPath = ToDisplayPath(path)
 		for i := range result.Files[0].Hunks {
 			result.Files[0].Hunks[i].FilePath = path
+			result.Files[0].Hunks[i].DisplayFilePath = ToDisplayPath(path)
 		}
 		return &result.Files[0]
 	}

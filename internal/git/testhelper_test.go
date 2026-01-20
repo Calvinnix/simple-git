@@ -42,6 +42,9 @@ func NewTestRepo(t *testing.T) *TestRepo {
 		t.Fatalf("failed to change to temp dir: %v", err)
 	}
 
+	// Reset cached repo root for the new test directory
+	ResetRepoRoot()
+
 	// Initialize git repo
 	repo.Git("init")
 	repo.Git("config", "user.email", "test@example.com")
@@ -55,6 +58,8 @@ func (r *TestRepo) Cleanup() {
 	r.T.Helper()
 	os.Chdir(r.origDir)
 	os.RemoveAll(r.Dir)
+	// Reset cached repo root when switching back
+	ResetRepoRoot()
 }
 
 // Git runs a git command in the test repo

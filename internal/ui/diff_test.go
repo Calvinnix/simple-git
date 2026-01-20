@@ -392,9 +392,10 @@ func TestDiffModelView(t *testing.T) {
 	m.diff = &git.CombinedDiffResult{}
 	m.hunks = []git.Hunk{
 		{
-			FilePath: "file1.txt",
-			Header:   "@@ -1,3 +1,3 @@",
-			Staged:   false,
+			FilePath:        "file1.txt",
+			DisplayFilePath: "file1.txt",
+			Header:          "@@ -1,3 +1,3 @@",
+			Staged:          false,
 			Lines: []git.DiffLine{
 				{Content: "-old", Type: git.LineRemoved},
 				{Content: "+new", Type: git.LineAdded},

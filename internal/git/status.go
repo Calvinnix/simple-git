@@ -6,10 +6,12 @@ import (
 
 // FileStatus represents the status of a single file
 type FileStatus struct {
-	Path         string
-	IndexStatus  byte // Status in the index (staged)
-	WorkStatus   byte // Status in the working tree
-	OriginalPath string // For renamed files
+	Path                string // Path relative to repo root (for git commands)
+	DisplayPath         string // Path relative to cwd (for display)
+	IndexStatus         byte   // Status in the index (staged)
+	WorkStatus          byte   // Status in the working tree
+	OriginalPath        string // For renamed files (repo-relative)
+	OriginalDisplayPath string // For renamed files (cwd-relative)
 }
 
 // IsStaged returns true if the file has staged changes
@@ -96,11 +98,18 @@ func GetStatus() (*StatusResult, error) {
 			}
 		}
 
+		var origDisplayPath string
+		if origPath != "" {
+			origDisplayPath = ToDisplayPath(origPath)
+		}
+
 		fs := FileStatus{
-			Path:         path,
-			IndexStatus:  indexStatus,
-			WorkStatus:   workStatus,
-			OriginalPath: origPath,
+			Path:                path,
+			DisplayPath:         ToDisplayPath(path),
+			IndexStatus:         indexStatus,
+			WorkStatus:          workStatus,
+			OriginalPath:        origPath,
+			OriginalDisplayPath: origDisplayPath,
 		}
 
 		// Categorize the file

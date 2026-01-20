@@ -669,7 +669,7 @@ func (m DiffModel) View() string {
 
 		sb.WriteString(cursor)
 		sb.WriteString(stageStyle.Render(stageLabel))
-		sb.WriteString(fmt.Sprintf(" @@ %s +%d -%d", h.FilePath, adds, dels))
+		sb.WriteString(fmt.Sprintf(" @@ %s +%d -%d", h.DisplayFilePath, adds, dels))
 		sb.WriteString("\n")
 	}
 
@@ -683,7 +683,7 @@ func (m DiffModel) View() string {
 	if m.confirmMode {
 		sb.WriteString("\n")
 		hunk := m.hunks[m.cursor]
-		sb.WriteString(StyleConfirm.Render(fmt.Sprintf("Discard hunk from '%s'? Type 'yes' to confirm: %s", hunk.FilePath, m.confirmInput)))
+		sb.WriteString(StyleConfirm.Render(fmt.Sprintf("Discard hunk from '%s'? Type 'yes' to confirm: %s", hunk.DisplayFilePath, m.confirmInput)))
 	}
 
 	return m.anchorBottom(sb.String())
@@ -722,12 +722,12 @@ func (m DiffModel) renderHunkDetail() string {
 	}
 
 	// Header with file info and navigation hint (at bottom)
-	sb.WriteString(fmt.Sprintf("─── %s %s %s ───", renderStageLabel(hunk.Staged), hunk.FilePath, hunk.Header))
+	sb.WriteString(fmt.Sprintf("─── %s %s %s ───", renderStageLabel(hunk.Staged), hunk.DisplayFilePath, hunk.Header))
 	sb.WriteString("\n")
 
 	// Confirm prompt (only shown when confirming)
 	if m.confirmMode {
-		sb.WriteString(StyleConfirm.Render(fmt.Sprintf("Discard hunk from '%s'? Type 'yes' to confirm: %s", hunk.FilePath, m.confirmInput)))
+		sb.WriteString(StyleConfirm.Render(fmt.Sprintf("Discard hunk from '%s'? Type 'yes' to confirm: %s", hunk.DisplayFilePath, m.confirmInput)))
 	}
 
 	return sb.String()

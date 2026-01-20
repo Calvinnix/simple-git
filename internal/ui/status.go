@@ -793,7 +793,7 @@ func (m StatusModel) View() string {
 	if m.confirmMode == confirmDiscard {
 		items := m.getSelectedItems()
 		if len(items) == 1 {
-			content.WriteString(StyleConfirm.Render(fmt.Sprintf("Discard '%s'? Type 'yes' to confirm: %s", items[0].File.Path, m.confirmInput)))
+			content.WriteString(StyleConfirm.Render(fmt.Sprintf("Discard '%s'? Type 'yes' to confirm: %s", items[0].File.DisplayPath, m.confirmInput)))
 		} else {
 			content.WriteString(StyleConfirm.Render(fmt.Sprintf("Discard %d files? Type 'yes' to confirm: %s", len(items), m.confirmInput)))
 		}
@@ -809,7 +809,7 @@ func (m StatusModel) View() string {
 		} else {
 			items := m.getSelectedItems()
 			if len(items) == 1 {
-				content.WriteString(fmt.Sprintf("Stash '%s'\n", items[0].File.Path))
+				content.WriteString(fmt.Sprintf("Stash '%s'\n", items[0].File.DisplayPath))
 			} else {
 				content.WriteString(fmt.Sprintf("Stash %d files\n", len(items)))
 			}
@@ -832,9 +832,9 @@ func (m StatusModel) View() string {
 }
 
 func (m StatusModel) renderItem(index int, f git.FileStatus, section string) string {
-	path := f.Path
-	if f.OriginalPath != "" {
-		path = fmt.Sprintf("%s → %s", f.OriginalPath, f.Path)
+	path := f.DisplayPath
+	if f.OriginalDisplayPath != "" {
+		path = fmt.Sprintf("%s → %s", f.OriginalDisplayPath, f.DisplayPath)
 	}
 
 	var pathStyle lipgloss.Style
