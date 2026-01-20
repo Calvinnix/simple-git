@@ -11,18 +11,19 @@ import (
 
 // DiffModel is the bubbletea model for the diff view
 type DiffModel struct {
-	diff         *git.CombinedDiffResult
-	hunks        []git.Hunk
-	cursor       int
-	filterFiles  []FileFilter // only show hunks for these files (empty = all)
-	viewingHunk  bool         // true when drilled into a single hunk
-	scrollOffset int          // scroll position within hunk content
-	showHelp     bool
-	confirmMode  bool
-	lastKey      string
-	err          error
-	width        int
-	height       int
+	diff             *git.CombinedDiffResult
+	hunks            []git.Hunk
+	cursor           int
+	listScrollOffset int          // scroll position in hunk list
+	filterFiles      []FileFilter // only show hunks for these files (empty = all)
+	viewingHunk      bool         // true when drilled into a single hunk
+	scrollOffset     int          // scroll position within hunk content
+	showHelp         bool
+	confirmMode      bool
+	lastKey          string
+	err              error
+	width            int
+	height           int
 }
 
 // NewDiffModel creates a new diff model
@@ -165,6 +166,7 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.lastKey == Keys.Top && key == Keys.Top {
 			m.lastKey = ""
 			m.cursor = 0
+			m.ensureHunkCursorVisible()
 			return m, nil
 		}
 
@@ -189,16 +191,19 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case Keys.Down, "down":
 			if len(m.hunks) > 0 {
 				m.cursor = min(m.cursor+1, len(m.hunks)-1)
+				m.ensureHunkCursorVisible()
 			}
 			return m, nil
 		case Keys.Up, "up":
 			if len(m.hunks) > 0 {
 				m.cursor = max(m.cursor-1, 0)
+				m.ensureHunkCursorVisible()
 			}
 			return m, nil
 		case Keys.Bottom:
 			if len(m.hunks) > 0 {
 				m.cursor = len(m.hunks) - 1
+				m.ensureHunkCursorVisible()
 			}
 			return m, nil
 		case " ":
@@ -230,6 +235,7 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cursor >= len(m.hunks) {
 			m.cursor = max(0, len(m.hunks)-1)
 		}
+		m.ensureHunkCursorVisible()
 		// Auto-enter detail view when there's only one hunk
 		if len(m.hunks) == 1 && !m.viewingHunk {
 			m.viewingHunk = true
@@ -301,6 +307,52 @@ func (m DiffModel) visibleLines() int {
 		return 40 // fallback default for full screen
 	}
 	return m.height - 5
+}
+
+// visibleHunkListLines returns the number of hunk list lines that can be displayed
+func (m DiffModel) visibleHunkListLines() int {
+	// Reserve lines for: preview area, scroll indicators, confirm prompt, etc.
+	// The preview takes up most of the space, so hunks get a smaller portion
+	reserved := 15
+	if m.height <= reserved {
+		return 10 // fallback minimum
+	}
+	// Give about 1/3 of remaining space to hunk list
+	available := (m.height - reserved) / 3
+	if available < 5 {
+		available = 5
+	}
+	return available
+}
+
+// ensureHunkCursorVisible adjusts listScrollOffset to keep cursor in view
+func (m *DiffModel) ensureHunkCursorVisible() {
+	visible := m.visibleHunkListLines()
+	if visible <= 0 {
+		return
+	}
+
+	// If cursor is above visible area, scroll up
+	if m.cursor < m.listScrollOffset {
+		m.listScrollOffset = m.cursor
+	}
+
+	// If cursor is below visible area, scroll down
+	if m.cursor >= m.listScrollOffset+visible {
+		m.listScrollOffset = m.cursor - visible + 1
+	}
+
+	// Clamp listScrollOffset to valid range
+	maxOffset := len(m.hunks) - visible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.listScrollOffset > maxOffset {
+		m.listScrollOffset = maxOffset
+	}
+	if m.listScrollOffset < 0 {
+		m.listScrollOffset = 0
+	}
 }
 
 func (m DiffModel) anchorBottom(content string) string {
@@ -512,11 +564,27 @@ func (m DiffModel) View() string {
 		return m.anchorBottom(m.renderHunkDetail())
 	}
 
-	// Calculate available lines for preview
-	fixedLines := len(m.hunks)
+	// Calculate visible range for hunk list first
+	visibleStart := m.listScrollOffset
+	visibleEnd := m.listScrollOffset + m.visibleHunkListLines()
+	if visibleEnd > len(m.hunks) {
+		visibleEnd = len(m.hunks)
+	}
+	visibleHunkCount := visibleEnd - visibleStart
+
+	// Account for scroll indicators in fixed lines count
+	fixedLines := visibleHunkCount
+	if m.listScrollOffset > 0 {
+		fixedLines++ // "↑ N more above"
+	}
+	if visibleEnd < len(m.hunks) {
+		fixedLines++ // "↓ N more below"
+	}
+
+	// Calculate available lines for preview (use remaining space)
 	availableForDetail := 50
 	if m.height > fixedLines+5 {
-		availableForDetail = m.height - fixedLines - 3
+		availableForDetail = m.height - fixedLines - 5
 	}
 
 	// Show current hunk preview first (above the list)
@@ -552,8 +620,15 @@ func (m DiffModel) View() string {
 		sb.WriteString("\n")
 	}
 
-	// Show hunk list at the bottom
-	for i, h := range m.hunks {
+	// Show scroll indicator at top if scrolled down
+	if m.listScrollOffset > 0 {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("  ↑ %d more above", m.listScrollOffset)))
+		sb.WriteString("\n")
+	}
+
+	// Show hunk list at the bottom (only visible items)
+	for i := visibleStart; i < visibleEnd; i++ {
+		h := m.hunks[i]
 		cursor := "  "
 		if i == m.cursor {
 			cursor = "> "
@@ -579,6 +654,12 @@ func (m DiffModel) View() string {
 		sb.WriteString(cursor)
 		sb.WriteString(stageStyle.Render(stageLabel))
 		sb.WriteString(fmt.Sprintf(" @@ %s +%d -%d", h.FilePath, adds, dels))
+		sb.WriteString("\n")
+	}
+
+	// Show scroll indicator at bottom if more items below
+	if visibleEnd < len(m.hunks) {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("  ↓ %d more below", len(m.hunks)-visibleEnd)))
 		sb.WriteString("\n")
 	}
 
