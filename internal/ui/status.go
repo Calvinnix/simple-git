@@ -38,6 +38,7 @@ const (
 type StatusModel struct {
 	items           []StatusItem
 	cursor          int
+	scrollOffset    int
 	selected        map[int]bool
 	visualMode      bool
 	visualStart     int
@@ -170,6 +171,7 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.lastKey == Keys.Top && key == Keys.Top {
 			m.lastKey = ""
 			m.cursor = 0
+			m.ensureCursorVisible()
 			if m.visualMode {
 				m.updateVisualSelection()
 			}
@@ -219,6 +221,7 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key == Keys.Down || key == "down":
 			if len(m.items) > 0 {
 				m.cursor = min(m.cursor+1, len(m.items)-1)
+				m.ensureCursorVisible()
 				if m.visualMode {
 					m.updateVisualSelection()
 				}
@@ -227,6 +230,7 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key == Keys.Up || key == "up":
 			if len(m.items) > 0 {
 				m.cursor = max(m.cursor-1, 0)
+				m.ensureCursorVisible()
 				if m.visualMode {
 					m.updateVisualSelection()
 				}
@@ -235,6 +239,7 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key == Keys.Bottom:
 			if len(m.items) > 0 {
 				m.cursor = len(m.items) - 1
+				m.ensureCursorVisible()
 				if m.visualMode {
 					m.updateVisualSelection()
 				}
@@ -313,6 +318,7 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cursor >= len(m.items) {
 			m.cursor = max(0, len(m.items)-1)
 		}
+		m.ensureCursorVisible()
 		m.selected = make(map[int]bool)
 		m.visualMode = false
 		return m, nil
@@ -333,6 +339,50 @@ func (m *StatusModel) updateVisualSelection() {
 	}
 	for i := start; i <= end; i++ {
 		m.selected[i] = true
+	}
+}
+
+// visibleLines returns the number of item lines that can be displayed
+func (m StatusModel) visibleLines() int {
+	// Reserve lines for: branch info (~3), section headers (~3), blank lines (~4),
+	// help bar (3 if shown), and some buffer
+	reserved := 12
+	if m.showVerboseHelp {
+		reserved += 3
+	}
+	if m.height <= reserved {
+		return 10 // fallback minimum
+	}
+	return m.height - reserved
+}
+
+// ensureCursorVisible adjusts scrollOffset to keep cursor in view
+func (m *StatusModel) ensureCursorVisible() {
+	visible := m.visibleLines()
+	if visible <= 0 {
+		return
+	}
+
+	// If cursor is above visible area, scroll up
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+
+	// If cursor is below visible area, scroll down
+	if m.cursor >= m.scrollOffset+visible {
+		m.scrollOffset = m.cursor - visible + 1
+	}
+
+	// Clamp scrollOffset to valid range
+	maxOffset := len(m.items) - visible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
 	}
 }
 
@@ -631,35 +681,88 @@ func (m StatusModel) View() string {
 		content.WriteString("\n")
 	}
 
+	// Calculate visible range
+	visibleStart := m.scrollOffset
+	visibleEnd := m.scrollOffset + m.visibleLines()
+	if visibleEnd > len(m.items) {
+		visibleEnd = len(m.items)
+	}
+
+	// Show scroll indicator at top if scrolled down
+	if m.scrollOffset > 0 {
+		content.WriteString(StyleMuted.Render(fmt.Sprintf("  ↑ %d more above", m.scrollOffset)))
+		content.WriteString("\n")
+	}
+
 	itemIndex := 0
 
 	if len(m.status.Staged) > 0 {
-		content.WriteString("Changes to be committed:\n")
-		for _, f := range m.status.Staged {
-			content.WriteString(m.renderItem(itemIndex, f, "staged"))
-			content.WriteString("\n")
-			itemIndex++
+		stagedStart := itemIndex
+		stagedEnd := itemIndex + len(m.status.Staged)
+		// Show section header if any staged items are visible
+		if stagedEnd > visibleStart && stagedStart < visibleEnd {
+			content.WriteString("Changes to be committed:\n")
+			for i, f := range m.status.Staged {
+				if itemIndex >= visibleStart && itemIndex < visibleEnd {
+					content.WriteString(m.renderItem(itemIndex, f, "staged"))
+					content.WriteString("\n")
+				}
+				itemIndex++
+				// Show trailing indicator if more staged items below visible area
+				if i == len(m.status.Staged)-1 && itemIndex <= visibleEnd {
+					content.WriteString("\n")
+				}
+			}
+		} else {
+			itemIndex += len(m.status.Staged)
 		}
-		content.WriteString("\n")
 	}
 
 	if len(m.status.Unstaged) > 0 {
-		content.WriteString("Changes not staged for commit:\n")
-		for _, f := range m.status.Unstaged {
-			content.WriteString(m.renderItem(itemIndex, f, "unstaged"))
-			content.WriteString("\n")
-			itemIndex++
+		unstagedStart := itemIndex
+		unstagedEnd := itemIndex + len(m.status.Unstaged)
+		// Show section header if any unstaged items are visible
+		if unstagedEnd > visibleStart && unstagedStart < visibleEnd {
+			content.WriteString("Changes not staged for commit:\n")
+			for i, f := range m.status.Unstaged {
+				if itemIndex >= visibleStart && itemIndex < visibleEnd {
+					content.WriteString(m.renderItem(itemIndex, f, "unstaged"))
+					content.WriteString("\n")
+				}
+				itemIndex++
+				if i == len(m.status.Unstaged)-1 && itemIndex <= visibleEnd {
+					content.WriteString("\n")
+				}
+			}
+		} else {
+			itemIndex += len(m.status.Unstaged)
 		}
-		content.WriteString("\n")
 	}
 
 	if len(m.status.Untracked) > 0 {
-		content.WriteString("Untracked files:\n")
-		for _, f := range m.status.Untracked {
-			content.WriteString(m.renderItem(itemIndex, f, "untracked"))
-			content.WriteString("\n")
-			itemIndex++
+		untrackedStart := itemIndex
+		untrackedEnd := itemIndex + len(m.status.Untracked)
+		// Show section header if any untracked items are visible
+		if untrackedEnd > visibleStart && untrackedStart < visibleEnd {
+			content.WriteString("Untracked files:\n")
+			for i, f := range m.status.Untracked {
+				if itemIndex >= visibleStart && itemIndex < visibleEnd {
+					content.WriteString(m.renderItem(itemIndex, f, "untracked"))
+					content.WriteString("\n")
+				}
+				itemIndex++
+				if i == len(m.status.Untracked)-1 && itemIndex <= visibleEnd {
+					content.WriteString("\n")
+				}
+			}
+		} else {
+			itemIndex += len(m.status.Untracked)
 		}
+	}
+
+	// Show scroll indicator at bottom if more items below
+	if visibleEnd < len(m.items) {
+		content.WriteString(StyleMuted.Render(fmt.Sprintf("  ↓ %d more below", len(m.items)-visibleEnd)))
 		content.WriteString("\n")
 	}
 
