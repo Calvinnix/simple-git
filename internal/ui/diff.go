@@ -17,7 +17,8 @@ type DiffModel struct {
 	listScrollOffset int          // scroll position in hunk list
 	filterFiles      []FileFilter // only show hunks for these files (empty = all)
 	viewingHunk      bool         // true when drilled into a single hunk
-	scrollOffset     int          // scroll position within hunk content
+	viewingFullDiff  bool         // true when viewing complete diff output
+	scrollOffset     int          // scroll position within hunk content or full diff
 	showHelp         bool
 	confirmMode      bool
 	confirmInput     string
@@ -123,6 +124,46 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Handle full diff view navigation
+		if m.viewingFullDiff {
+			switch key {
+			case Keys.FullDiff, Keys.Left, "left", "esc":
+				m.viewingFullDiff = false
+				m.scrollOffset = 0
+				return m, nil
+			case Keys.Down, "down":
+				maxScroll := m.fullDiffTotalLines() - m.visibleLines()
+				if maxScroll > 0 {
+					m.scrollOffset = min(m.scrollOffset+1, maxScroll)
+				}
+				return m, nil
+			case Keys.Up, "up":
+				m.scrollOffset = max(m.scrollOffset-1, 0)
+				return m, nil
+			case Keys.Top:
+				if m.lastKey == Keys.Top {
+					m.lastKey = ""
+					m.scrollOffset = 0
+					return m, nil
+				}
+				m.lastKey = Keys.Top
+				return m, nil
+			case Keys.Bottom:
+				maxScroll := m.fullDiffTotalLines() - m.visibleLines()
+				if maxScroll > 0 {
+					m.scrollOffset = maxScroll
+				}
+				return m, nil
+			case Keys.Quit:
+				return m, tea.Quit
+			case Keys.Help:
+				m.showHelp = true
+				return m, nil
+			}
+			m.lastKey = ""
+			return m, nil
+		}
+
 		// Handle hunk detail view navigation
 		if m.viewingHunk {
 			switch key {
@@ -197,6 +238,12 @@ func (m DiffModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case Keys.Help:
 			m.showHelp = true
+			return m, nil
+		case Keys.FullDiff:
+			if len(m.hunks) > 0 {
+				m.viewingFullDiff = true
+				m.scrollOffset = 0
+			}
 			return m, nil
 		case Keys.Right, "right", "enter":
 			if len(m.hunks) > 0 && m.cursor < len(m.hunks) {
@@ -575,6 +622,11 @@ func (m DiffModel) View() string {
 		return sb.String()
 	}
 
+	// Full diff view: show complete diff like git diff output
+	if m.viewingFullDiff {
+		return m.anchorBottom(m.renderFullDiff())
+	}
+
 	// Drill-down view: show single hunk with scrolling
 	if m.viewingHunk && m.cursor < len(m.hunks) {
 		return m.anchorBottom(m.renderHunkDetail())
@@ -733,6 +785,82 @@ func (m DiffModel) renderHunkDetail() string {
 	return sb.String()
 }
 
+// fullDiffTotalLines returns the total number of lines in the full diff view
+func (m DiffModel) fullDiffTotalLines() int {
+	total := 0
+	for _, h := range m.hunks {
+		// File header line + hunk header line + all hunk lines + blank line
+		total += 2 + len(h.Lines) + 1
+	}
+	return total
+}
+
+// renderFullDiff renders the complete diff output like git diff
+func (m DiffModel) renderFullDiff() string {
+	var sb strings.Builder
+
+	// Build full diff content
+	var lines []string
+	lastFilePath := ""
+	for _, h := range m.hunks {
+		// Add file header when file changes
+		if h.FilePath != lastFilePath {
+			stageLabel := "[Unstaged]"
+			stageStyle := StyleHunkHeaderUnstaged
+			if h.Staged {
+				stageLabel = "[Staged]"
+				stageStyle = StyleHunkHeaderStaged
+			}
+			lines = append(lines, stageStyle.Render(stageLabel)+" "+h.DisplayFilePath)
+			lastFilePath = h.FilePath
+		}
+
+		// Add hunk header
+		lines = append(lines, StyleMuted.Render(h.Header))
+
+		// Add hunk lines
+		for _, line := range h.Lines {
+			var styled string
+			switch line.Type {
+			case git.LineAdded:
+				styled = StyleDiffAdded.Render(line.Content)
+			case git.LineRemoved:
+				styled = StyleDiffRemoved.Render(line.Content)
+			default:
+				styled = StyleDiffContext.Render(line.Content)
+			}
+			lines = append(lines, styled)
+		}
+
+		// Add blank line between hunks
+		lines = append(lines, "")
+	}
+
+	// Apply scrolling
+	totalLines := len(lines)
+	visible := m.visibleLines()
+	startLine := m.scrollOffset
+	endLine := min(startLine+visible, totalLines)
+
+	for i := startLine; i < endLine; i++ {
+		sb.WriteString(lines[i])
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("\n")
+
+	// Show scroll position if scrollable
+	if totalLines > visible {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("Lines %d-%d of %d (press %s or h/← to go back)", m.scrollOffset+1, min(m.scrollOffset+visible, totalLines), totalLines, Keys.FullDiff)))
+		sb.WriteString("\n")
+	} else {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("Press %s or h/← to go back", Keys.FullDiff)))
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
 func (m DiffModel) renderHelp() string {
 	var sb strings.Builder
 
@@ -749,6 +877,7 @@ func (m DiffModel) renderHelp() string {
 		desc string
 	}{
 		{drillKeys, "View hunk detail (scrollable)"},
+		{Keys.FullDiff, "Toggle full diff view"},
 		{backKeys, "Go back"},
 		{moveKeys, "Navigate / scroll"},
 		{topKey, "Go to top"},

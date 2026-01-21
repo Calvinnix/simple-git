@@ -30,6 +30,7 @@ type Keymap struct {
 	// Views
 	FileDiff string
 	AllDiffs string
+	FullDiff string
 	Branches string
 	Stashes  string
 	Log      string
@@ -69,6 +70,7 @@ var keymapBindings = []keymapBinding{
 	{action: "stash-all", key: func(k *Keymap) *string { return &k.StashAll }},
 	{action: "file-diff", key: func(k *Keymap) *string { return &k.FileDiff }},
 	{action: "all-diffs", key: func(k *Keymap) *string { return &k.AllDiffs }},
+	{action: "full-diff", key: func(k *Keymap) *string { return &k.FullDiff }},
 	{action: "branches", key: func(k *Keymap) *string { return &k.Branches }},
 	{action: "stashes", key: func(k *Keymap) *string { return &k.Stashes }},
 	{action: "log", key: func(k *Keymap) *string { return &k.Log }},
@@ -108,6 +110,7 @@ func DefaultKeymap() *Keymap {
 		// Views
 		FileDiff: "l",
 		AllDiffs: "i",
+		FullDiff: "f",
 		Branches: "b",
 		Stashes:  "e",
 		Log:      "o",
