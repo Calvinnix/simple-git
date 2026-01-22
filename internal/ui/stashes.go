@@ -317,6 +317,7 @@ func (m StashDiffModel) renderHelp() string {
 type StashesModel struct {
 	stashes         []git.Stash
 	cursor          int
+	scrollOffset    int
 	showHelp        bool
 	showVerboseHelp bool
 	confirmMode     bool
@@ -393,6 +394,7 @@ func (m StashesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.lastKey == Keys.Top && key == Keys.Top {
 			m.lastKey = ""
 			m.cursor = 0
+			m.ensureCursorVisible()
 			return m, nil
 		}
 
@@ -412,16 +414,19 @@ func (m StashesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case Keys.Down, "down":
 			if len(m.stashes) > 0 {
 				m.cursor = min(m.cursor+1, len(m.stashes)-1)
+				m.ensureCursorVisible()
 			}
 			return m, nil
 		case Keys.Up, "up":
 			if len(m.stashes) > 0 {
 				m.cursor = max(m.cursor-1, 0)
+				m.ensureCursorVisible()
 			}
 			return m, nil
 		case Keys.Bottom:
 			if len(m.stashes) > 0 {
 				m.cursor = len(m.stashes) - 1
+				m.ensureCursorVisible()
 			}
 			return m, nil
 		case "a":
@@ -456,6 +461,7 @@ func (m StashesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.cursor >= len(m.stashes) {
 			m.cursor = max(0, len(m.stashes)-1)
 		}
+		m.ensureCursorVisible()
 		return m, nil
 
 	case stashDiffMsg:
@@ -517,6 +523,49 @@ func (m StashesModel) doDropStash() tea.Cmd {
 	}
 }
 
+// visibleLines returns the number of stash lines that can be displayed
+func (m StashesModel) visibleLines() int {
+	// Reserve lines for: header (~3), help bar (~3 if shown), confirm prompt, and buffer
+	reserved := 8
+	if m.showVerboseHelp {
+		reserved += 3
+	}
+	if m.height <= reserved {
+		return 10 // fallback minimum
+	}
+	return m.height - reserved
+}
+
+// ensureCursorVisible adjusts scrollOffset to keep cursor in view
+func (m *StashesModel) ensureCursorVisible() {
+	visible := m.visibleLines()
+	if visible <= 0 {
+		return
+	}
+
+	// If cursor is above visible area, scroll up
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+
+	// If cursor is below visible area, scroll down
+	if m.cursor >= m.scrollOffset+visible {
+		m.scrollOffset = m.cursor - visible + 1
+	}
+
+	// Clamp scrollOffset to valid range
+	maxOffset := len(m.stashes) - visible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+}
+
 // View renders the model
 func (m StashesModel) View() string {
 	if m.showHelp {
@@ -539,7 +588,21 @@ func (m StashesModel) View() string {
 	sb.WriteString(m.renderHeader())
 	sb.WriteString("\n\n")
 
-	for i, stash := range m.stashes {
+	// Calculate visible range
+	visibleStart := m.scrollOffset
+	visibleEnd := m.scrollOffset + m.visibleLines()
+	if visibleEnd > len(m.stashes) {
+		visibleEnd = len(m.stashes)
+	}
+
+	// Show scroll indicator at top if scrolled down
+	if m.scrollOffset > 0 {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("  ↑ %d more above", m.scrollOffset)))
+		sb.WriteString("\n")
+	}
+
+	for i := visibleStart; i < visibleEnd; i++ {
+		stash := m.stashes[i]
 		prefix := "  "
 		if i == m.cursor {
 			prefix = "> "
@@ -552,6 +615,12 @@ func (m StashesModel) View() string {
 		label += ": " + stash.Message
 
 		sb.WriteString(prefix + label)
+		sb.WriteString("\n")
+	}
+
+	// Show scroll indicator at bottom if more items below
+	if visibleEnd < len(m.stashes) {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("  ↓ %d more below", len(m.stashes)-visibleEnd)))
 		sb.WriteString("\n")
 	}
 

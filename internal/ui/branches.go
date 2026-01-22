@@ -14,6 +14,7 @@ import (
 type BranchesModel struct {
 	branches            []git.Branch
 	cursor              int
+	scrollOffset        int
 	showHelp            bool
 	showVerboseHelp     bool
 	inputMode           bool
@@ -147,6 +148,7 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.lastKey == Keys.Top && key == Keys.Top {
 			m.lastKey = ""
 			m.cursor = 0
+			m.ensureCursorVisible()
 			return m, nil
 		}
 
@@ -166,16 +168,19 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case Keys.Down, "down":
 			if len(m.branches) > 0 {
 				m.cursor = min(m.cursor+1, len(m.branches)-1)
+				m.ensureCursorVisible()
 			}
 			return m, nil
 		case Keys.Up, "up":
 			if len(m.branches) > 0 {
 				m.cursor = max(m.cursor-1, 0)
+				m.ensureCursorVisible()
 			}
 			return m, nil
 		case Keys.Bottom:
 			if len(m.branches) > 0 {
 				m.cursor = len(m.branches) - 1
+				m.ensureCursorVisible()
 			}
 			return m, nil
 		case Keys.Right, "right", "enter":
@@ -222,6 +227,7 @@ func (m BranchesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
+		m.ensureCursorVisible()
 		return m, nil
 
 	case branchDeleteFailedMsg:
@@ -290,6 +296,49 @@ func (m BranchesModel) doForceDeleteBranch() tea.Cmd {
 	}
 }
 
+// visibleLines returns the number of branch lines that can be displayed
+func (m BranchesModel) visibleLines() int {
+	// Reserve lines for: header (~3), help bar (~3 if shown), input/confirm prompts, and buffer
+	reserved := 8
+	if m.showVerboseHelp {
+		reserved += 3
+	}
+	if m.height <= reserved {
+		return 10 // fallback minimum
+	}
+	return m.height - reserved
+}
+
+// ensureCursorVisible adjusts scrollOffset to keep cursor in view
+func (m *BranchesModel) ensureCursorVisible() {
+	visible := m.visibleLines()
+	if visible <= 0 {
+		return
+	}
+
+	// If cursor is above visible area, scroll up
+	if m.cursor < m.scrollOffset {
+		m.scrollOffset = m.cursor
+	}
+
+	// If cursor is below visible area, scroll down
+	if m.cursor >= m.scrollOffset+visible {
+		m.scrollOffset = m.cursor - visible + 1
+	}
+
+	// Clamp scrollOffset to valid range
+	maxOffset := len(m.branches) - visible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+}
+
 // View renders the model
 func (m BranchesModel) View() string {
 	if m.showHelp {
@@ -312,7 +361,21 @@ func (m BranchesModel) View() string {
 	sb.WriteString(m.renderHeader())
 	sb.WriteString("\n\n")
 
-	for i, branch := range m.branches {
+	// Calculate visible range
+	visibleStart := m.scrollOffset
+	visibleEnd := m.scrollOffset + m.visibleLines()
+	if visibleEnd > len(m.branches) {
+		visibleEnd = len(m.branches)
+	}
+
+	// Show scroll indicator at top if scrolled down
+	if m.scrollOffset > 0 {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("  ↑ %d more above", m.scrollOffset)))
+		sb.WriteString("\n")
+	}
+
+	for i := visibleStart; i < visibleEnd; i++ {
+		branch := m.branches[i]
 		prefix := "  "
 		if i == m.cursor {
 			prefix = "> "
@@ -361,6 +424,12 @@ func (m BranchesModel) View() string {
 			sb.WriteString(StyleMuted.Render(" - " + msg))
 		}
 
+		sb.WriteString("\n")
+	}
+
+	// Show scroll indicator at bottom if more items below
+	if visibleEnd < len(m.branches) {
+		sb.WriteString(StyleMuted.Render(fmt.Sprintf("  ↓ %d more below", len(m.branches)-visibleEnd)))
 		sb.WriteString("\n")
 	}
 
