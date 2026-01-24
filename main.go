@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const version = "0.14.0"
+const version = "0.15.0"
 
 func main() {
 	if !git.IsGitRepo() {
