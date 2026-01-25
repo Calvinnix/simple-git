@@ -91,6 +91,12 @@ func RunAllowFailure(args ...string) (string, error) {
 	return stdout.String(), err
 }
 
+// hasCommits checks if the repository has any commits (HEAD exists)
+func hasCommits() bool {
+	_, err := Run("rev-parse", "HEAD")
+	return err == nil
+}
+
 // StageFile stages a file
 func StageFile(path string) error {
 	_, err := Run("add", "--", path)
@@ -105,12 +111,24 @@ func StageAll() error {
 
 // UnstageFile unstages a file
 func UnstageFile(path string) error {
+	// When there are no commits, we can't use restore --staged because HEAD doesn't exist.
+	// Use git rm --cached instead.
+	if !hasCommits() {
+		_, err := Run("rm", "--cached", "--", path)
+		return err
+	}
 	_, err := Run("restore", "--staged", "--", path)
 	return err
 }
 
 // UnstageAll unstages all staged changes
 func UnstageAll() error {
+	// When there are no commits, we can't use reset HEAD because HEAD doesn't exist.
+	// Use git rm -r --cached . instead.
+	if !hasCommits() {
+		_, err := Run("rm", "-r", "--cached", ".")
+		return err
+	}
 	_, err := Run("reset", "HEAD")
 	return err
 }

@@ -190,6 +190,62 @@ func TestUnstageAll(t *testing.T) {
 	}
 }
 
+func TestUnstageFileNoCommits(t *testing.T) {
+	repo := NewTestRepo(t)
+	defer repo.Cleanup()
+
+	// Don't create any commits - this is a fresh repo
+	repo.WriteFile("test.txt", "content")
+	repo.Git("add", "test.txt")
+
+	// Verify file is initially staged
+	output := repo.Git("status", "--porcelain")
+	if !strings.Contains(output, "A  test.txt") {
+		t.Fatalf("file should be staged initially, got: %s", output)
+	}
+
+	err := UnstageFile("test.txt")
+	if err != nil {
+		t.Fatalf("UnstageFile failed in repo with no commits: %v", err)
+	}
+
+	// Verify file is unstaged
+	output = repo.Git("status", "--porcelain")
+	if !strings.Contains(output, "?? test.txt") {
+		t.Errorf("expected file to be untracked after unstaging, got: %s", output)
+	}
+}
+
+func TestUnstageAllNoCommits(t *testing.T) {
+	repo := NewTestRepo(t)
+	defer repo.Cleanup()
+
+	// Don't create any commits - this is a fresh repo
+	repo.WriteFile("file1.txt", "content1")
+	repo.WriteFile("file2.txt", "content2")
+	repo.Git("add", "-A")
+
+	// Verify files are staged
+	output := repo.Git("status", "--porcelain")
+	if !strings.Contains(output, "A  file1.txt") || !strings.Contains(output, "A  file2.txt") {
+		t.Fatalf("files should be staged initially, got: %s", output)
+	}
+
+	err := UnstageAll()
+	if err != nil {
+		t.Fatalf("UnstageAll failed in repo with no commits: %v", err)
+	}
+
+	// Verify files are unstaged
+	output = repo.Git("status", "--porcelain")
+	if !strings.Contains(output, "?? file1.txt") {
+		t.Errorf("expected file1.txt to be untracked, got: %s", output)
+	}
+	if !strings.Contains(output, "?? file2.txt") {
+		t.Errorf("expected file2.txt to be untracked, got: %s", output)
+	}
+}
+
 func TestDiscardFile(t *testing.T) {
 	repo := NewTestRepo(t)
 	defer repo.Cleanup()
