@@ -320,6 +320,8 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.visualMode = false
 			return m, cmd
 		case key == Keys.StageAll:
+			m.selected = make(map[int]bool)
+			m.visualMode = false
 			return m, m.stageAll()
 		case key == Keys.Unstage:
 			cmd := m.unstageFiles()
@@ -327,6 +329,8 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.visualMode = false
 			return m, cmd
 		case key == Keys.UnstageAll:
+			m.selected = make(map[int]bool)
+			m.visualMode = false
 			return m, m.unstageAll()
 		case key == Keys.Discard:
 			if len(m.items) > 0 && (len(m.selected) > 0 || !m.visualMode) {
