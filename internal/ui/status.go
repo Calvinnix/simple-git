@@ -274,7 +274,10 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key == Keys.Down || key == "down":
 			if len(m.items) > 0 {
-				m.cursor = min(m.cursor+1, len(m.items)-1)
+				m.cursor++
+				if m.cursor >= len(m.items) {
+					m.cursor = 0
+				}
 				m.ensureCursorVisible()
 				if m.visualMode {
 					m.updateVisualSelection()
@@ -283,7 +286,10 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key == Keys.Up || key == "up":
 			if len(m.items) > 0 {
-				m.cursor = max(m.cursor-1, 0)
+				m.cursor--
+				if m.cursor < 0 {
+					m.cursor = len(m.items) - 1
+				}
 				m.ensureCursorVisible()
 				if m.visualMode {
 					m.updateVisualSelection()
