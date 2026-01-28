@@ -89,6 +89,11 @@ func NewStatusModelWithHelp(showHelp bool) StatusModel {
 	}
 }
 
+// isBlocking returns true if the model is in a mode that shouldn't be interrupted by auto-refresh
+func (m StatusModel) isBlocking() bool {
+	return m.confirmMode != confirmNone || m.commitMode || m.stashMode != stashNone || m.showHelp || m.visualMode || len(m.selected) > 0
+}
+
 // Init initializes the model
 func (m StatusModel) Init() tea.Cmd {
 	return refreshStatus

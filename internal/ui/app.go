@@ -2,9 +2,14 @@ package ui
 
 import (
 	"go-on-git/internal/git"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+const watchInterval = 500 * time.Millisecond
+
+type tickMsg time.Time
 
 type viewMode int
 
@@ -54,7 +59,13 @@ func NewAppModelWithOptions(showHelp bool) AppModel {
 }
 
 func (m AppModel) Init() tea.Cmd {
-	return m.status.Init()
+	return tea.Batch(m.status.Init(), tickCmd())
+}
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(watchInterval, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
 }
 
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -73,6 +84,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.stashes.height = msg.Height
 		m.log.width = msg.Width
 		m.log.height = msg.Height
+
+	case tickMsg:
+		// Only auto-refresh in status view when not in a blocking mode
+		if m.mode == viewStatus && !m.status.isBlocking() {
+			return m, tea.Batch(refreshStatus, tickCmd())
+		}
+		return m, tickCmd()
 
 	case tea.KeyMsg:
 		key := msg.String()
