@@ -758,12 +758,10 @@ func (m StatusModel) View() string {
 		}
 		content.WriteString("\n")
 	}
-	content.WriteString("\n")
-
 	if m.visualMode && !m.quitting {
 		content.WriteString(StyleVisual.Render("-- VISUAL --"))
-		content.WriteString("\n")
 	}
+	content.WriteString("\n")
 
 	// Calculate visible range
 	visibleStart := m.scrollOffset
